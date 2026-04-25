@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>hello_ros2</name>
+  <version>0.0.0</version>
+  <description>The hello_ros2 package demonstrating a basic ROS 2 Node</description>
+  <maintainer email="user@todo.todo">User</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclcpp</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
