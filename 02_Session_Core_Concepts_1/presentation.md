@@ -73,6 +73,11 @@ ROS 2 Jazzy C++ Course
 
 ---
 
+## GUI for ROS visualization (RQT)
+
+- **rqt_graph**: Visualize the node graph.
+
+---
 
 ## C++ Publisher Example
 
