@@ -1,0 +1,5 @@
+# config/my_params.yaml
+my_node:
+  ros__parameters:
+    speed: 24
+    robot_name: "carkyo"

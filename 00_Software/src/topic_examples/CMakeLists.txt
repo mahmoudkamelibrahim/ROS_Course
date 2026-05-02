@@ -22,4 +22,8 @@ install(TARGETS
   subscriber_node
   DESTINATION lib/${PROJECT_NAME})
 
+# Install the launch directory
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch)
+
 ament_package()

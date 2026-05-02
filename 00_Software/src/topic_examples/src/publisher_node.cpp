@@ -6,6 +6,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 
+//allows to write 500ms instead of std::chrono::milliseconds(500)
 using namespace std::chrono_literals;
 
 class MinimalPublisher : public rclcpp::Node {
