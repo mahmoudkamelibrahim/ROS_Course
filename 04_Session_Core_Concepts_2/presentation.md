@@ -15,7 +15,7 @@ ROS 2 Jazzy C++ Course
 
 Beyond topics, ROS 2 provides richer communication and tooling patterns:
 
-- **Services** — Synchronous request/response
+- **Services** — Request/response
 - **Parameters** — Runtime node configuration
 - **Launch Files** — Multi-node orchestration
 - **Bags** — Recording and replaying data
@@ -25,7 +25,6 @@ Beyond topics, ROS 2 provides richer communication and tooling patterns:
 ## Services — Overview
 
 - **Client-Server** pattern: one node *requests*, another *responds*.
-- Communication is **synchronous** (the client blocks until it gets a response).
 - Used for operations that are **quick and discrete**:
   - Querying robot status
   - Triggering a calibration
@@ -39,7 +38,7 @@ Beyond topics, ROS 2 provides richer communication and tooling patterns:
 |---|---|---|
 | Pattern | Publish / Subscribe | Request / Response |
 | Direction | One-to-many | One-to-one |
-| Timing | Continuous / Async | On-demand / Sync |
+| Timing | Continuous / Async | On-demand |
 | Use case | Sensor streams | Commands, queries |
 
 ---
@@ -153,6 +152,20 @@ int main(int argc, char **argv)
   rclcpp::spin(node);
   rclcpp::shutdown();
 }
+```
+
+```cpp
+    if (!client_->wait_for_service(1s)) {
+      RCLCPP_INFO(this->get_logger(), "Service not available");
+      return;}
+
+    // Send the request asynchronously
+    auto result_future = client_->async_send_request(request, 
+        [this](rclcpp::Client<example_interfaces::srv::AddTwoInts>::SharedFuture future) {
+            auto response = future.get();
+            RCLCPP_INFO(this->get_logger(), "Result: %ld", response->sum);
+        }
+    );
 ```
 
 ---
@@ -271,11 +284,16 @@ my_node:
     robot_name: "carkyo"
 ```
 
-**CMakeLists.txt** (install the config directory):
+**CMakeLists.txt** (C++):
 ```cmake
 install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
+```
+
+**setup.py** (Python):
+```python
+(os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
 ```
 
 **Run from terminal**:
@@ -334,6 +352,30 @@ install(DIRECTORY launch/
 
 > The launch file itself is a plain Python script — no compilation needed.
 > Just install the `launch/` folder so ROS 2 can locate it.
+
+---
+
+## Launch File — setup.py Changes
+
+For **Python packages**, add the launch files to `data_files` in `setup.py`:
+
+```python
+import os
+from glob import glob
+# ...
+setup(
+    # ...
+    data_files=[
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+        ('share/' + package_name, ['package.xml']),
+        # Install launch files
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+        # Install config files (if any)
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+    ],
+)
+```
 
 ---
 
