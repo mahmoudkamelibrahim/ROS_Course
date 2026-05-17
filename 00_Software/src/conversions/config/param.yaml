@@ -1,0 +1,5 @@
+euler_quat_tf2_demo:
+  ros__parameters:
+    roll: 3.14159
+    pitch: 0.4
+    yaw: -0.06
