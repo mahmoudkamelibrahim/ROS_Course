@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Euler Angles &amp; Quaternions — Interactive 3D Guide</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#080c18;color:#d0d8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{background:linear-gradient(135deg,#0f1630,#1a2550);padding:10px 20px;display:flex;align-items:center;gap:16px;border-bottom:1px solid #1e2d5a;flex-shrink:0}
+header h1{font-size:1.2rem;font-weight:700;background:linear-gradient(90deg,#7eb4ff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+header p{font-size:0.78rem;color:#7090c0;margin-top:2px}
+.badge{padding:3px 8px;border-radius:12px;font-size:0.7rem;font-weight:600;background:#1e3a6e;color:#7eb4ff;border:1px solid #2a4a8e}
+main{display:flex;flex:1;overflow:hidden}
+#canvas-container{flex:1;position:relative;background:#080c18;min-width:0}
+#glCanvas{width:100%;height:100%;display:block}
+.overlay-info{position:absolute;top:12px;left:12px;background:rgba(8,12,28,0.85);border:1px solid #1e2d5a;border-radius:8px;padding:10px 14px;font-size:0.72rem;line-height:1.7;pointer-events:none}
+.overlay-info .axis-x{color:#ff5555}
+.overlay-info .axis-y{color:#55ff88}
+.overlay-info .axis-z{color:#5599ff}
+.overlay-values{position:absolute;bottom:12px;left:12px;background:rgba(8,12,28,0.9);border:1px solid #1e2d5a;border-radius:8px;padding:10px 14px;font-size:0.75rem;line-height:1.9;pointer-events:none;font-family:'Courier New',monospace}
+.overlay-values span{color:#a78bfa}
+.cam-hint{position:absolute;bottom:12px;right:12px;background:rgba(8,12,28,0.7);border:1px solid #1e2d5a;border-radius:6px;padding:6px 10px;font-size:0.68rem;color:#5070a0;pointer-events:none}
+#control-panel{width:360px;min-width:320px;background:#0c1020;border-left:1px solid #1e2d5a;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.tabs{display:flex;border-bottom:1px solid #1e2d5a;flex-shrink:0}
+.tab-btn{flex:1;padding:10px 4px;font-size:0.73rem;font-weight:600;background:none;border:none;color:#5070a0;cursor:pointer;transition:all .2s;border-bottom:2px solid transparent}
+.tab-btn:hover{color:#a0b8e0;background:#0f1830}
+.tab-btn.active{color:#7eb4ff;border-bottom-color:#5080e0;background:#0f1830}
+.tab-content{display:none;flex-direction:column;overflow-y:auto;flex:1;padding:14px}
+.tab-content.active{display:flex}
+.section-title{font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#5080d0;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #1a2540}
+.info-box{background:#0f1830;border:1px solid #1e3060;border-radius:8px;padding:10px 12px;font-size:0.73rem;line-height:1.65;color:#9ab0d8;margin-bottom:12px}
+.info-box strong{color:#7eb4ff}
+.info-box .formula{font-family:'Courier New',monospace;font-size:0.7rem;color:#a78bfa;background:#0a1020;padding:4px 8px;border-radius:4px;display:inline-block;margin:2px 0}
+.warn{color:#ffa555;font-size:0.7rem;margin-top:6px;background:#1a1000;border:1px solid #3a2000;border-radius:4px;padding:6px 10px}
+.ctrl-group{margin-bottom:14px}
+.ctrl-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:0.75rem}
+.ctrl-label span:first-child{font-weight:600;color:#c0d0f0}
+.ctrl-label .val{font-family:'Courier New',monospace;font-size:0.8rem;color:#a78bfa;min-width:60px;text-align:right}
+input[type=range]{width:100%;height:6px;-webkit-appearance:none;background:#1a2540;border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(0,0,0,.5)}
+.slider-roll::-webkit-slider-thumb{background:#ff6655}
+.slider-pitch::-webkit-slider-thumb{background:#55ff88}
+.slider-yaw::-webkit-slider-thumb{background:#5599ff}
+.slider-w::-webkit-slider-thumb{background:#ffd055}
+.slider-x::-webkit-slider-thumb{background:#ff6655}
+.slider-y::-webkit-slider-thumb{background:#55ff88}
+.slider-z::-webkit-slider-thumb{background:#5599ff}
+.slider-angle::-webkit-slider-thumb{background:#a78bfa}
+.slider-ax::-webkit-slider-thumb{background:#ff6655}
+.slider-ay::-webkit-slider-thumb{background:#55ff88}
+.slider-az::-webkit-slider-thumb{background:#5599ff}
+.track-roll{background:linear-gradient(90deg,#1a2540,#ff665555)}
+.track-pitch{background:linear-gradient(90deg,#1a2540,#55ff8855)}
+.track-yaw{background:linear-gradient(90deg,#1a2540,#5599ff55)}
+.axis-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.dot-x{background:#ff6655}
+.dot-y{background:#55ff88}
+.dot-z{background:#5599ff}
+.dot-w{background:#ffd055}
+.dot-p{background:#a78bfa}
+.btn{padding:7px 14px;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:#1e3a8a;color:#7eb4ff;border:1px solid #2a4a9a}
+.btn-primary:hover{background:#2a4a9a;color:#a8d0ff}
+.btn-warn{background:#2a1500;color:#ffa555;border:1px solid #5a3000}
+.btn-warn:hover{background:#3a2000;color:#ffb888}
+.btn-success{background:#0a2010;color:#55ff88;border:1px solid #1a4020}
+.btn-success:hover{background:#0f3018;color:#88ffaa}
+.btn-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.matrix-display{background:#060a14;border:1px solid #1a2540;border-radius:6px;padding:8px;font-family:'Courier New',monospace;font-size:0.68rem;color:#6080b0;text-align:center;margin-bottom:10px}
+.matrix-display .mrow{display:flex;justify-content:center;gap:8px;line-height:1.8}
+.matrix-display .mval{color:#a0b8e0;min-width:52px;text-align:right}
+.order-select{background:#0f1830;border:1px solid #1e3060;border-radius:6px;color:#c0d0f0;padding:5px 10px;font-size:0.75rem;cursor:pointer;outline:none;margin-left:8px}
+.sep{height:1px;background:#1a2540;margin:12px 0}
+.quat-display{background:#060a14;border:1px solid #1a2540;border-radius:6px;padding:10px;font-size:0.75rem;line-height:1.9;font-family:'Courier New',monospace;margin-bottom:10px}
+.euler-display{background:#060a14;border:1px solid #1a2540;border-radius:6px;padding:10px;font-size:0.75rem;line-height:1.9;font-family:'Courier New',monospace;margin-bottom:10px}
+.mapping-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.mapping-card{background:#0f1830;border:1px solid #1e3060;border-radius:8px;padding:10px}
+.mapping-card h4{font-size:0.72rem;font-weight:700;color:#5080d0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.sync-indicator{display:flex;align-items:center;gap:8px;font-size:0.73rem;color:#a0b8d8;margin-bottom:12px}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#55ff88;box-shadow:0 0 6px #55ff8880}
+.gimbal-alert{background:#1a0800;border:1px solid #ff6600;border-radius:6px;padding:8px 12px;font-size:0.72rem;color:#ffa555;display:none;margin-top:8px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.formula-block{background:#060a14;border:1px solid #1e2d5a;border-radius:8px;padding:12px;font-family:'Courier New',monospace;font-size:0.7rem;color:#8090b0;margin-bottom:12px;line-height:2}
+.formula-block .fl{color:#a78bfa}
+.formula-block .fr{color:#7eb4ff}
+.formula-block .fn{color:#55ff88}
+.mag-bar-bg{background:#1a2540;border-radius:3px;height:6px;margin-top:4px;overflow:hidden}
+.mag-bar{background:linear-gradient(90deg,#a78bfa,#7eb4ff);height:6px;transition:width .1s}
+.tooltip{position:relative;display:inline-block;cursor:help;border-bottom:1px dashed #5080b0}
+.tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:#0a1020;border:1px solid #2a3a6a;border-radius:6px;padding:6px 10px;font-size:0.68rem;color:#c0d0f0;white-space:nowrap;z-index:100;pointer-events:none}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#0a0e1a}
+::-webkit-scrollbar-thumb{background:#1e2d5a;border-radius:3px}
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<header>
+  <div>
+    <h1>✈ Euler Angles &amp; Quaternions — Interactive 3D Guide</h1>
+    <p>Rotate the aircraft in 3D · Drag canvas to orbit · Scroll to zoom</p>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+    <span class="badge">Three.js r128</span>
+    <span class="badge">WebGL</span>
+    <span class="badge">Interactive</span>
+  </div>
+</header>
+
+<main>
+  <div id="canvas-container">
+    <canvas id="glCanvas"></canvas>
+    <div class="overlay-info">
+      <div><span class="axis-x">■ X (Red)</span> — Roll axis (longitudinal)</div>
+      <div><span class="axis-y">■ Y (Green)</span> — Yaw axis (vertical)</div>
+      <div><span class="axis-z">■ Z (Blue)</span> — Pitch axis (lateral)</div>
+      <div style="margin-top:4px;color:#4060a0;font-size:0.68rem">Arrows = world axes · Colored = body axes</div>
+    </div>
+    <div class="overlay-values" id="overlayValues">
+      <div><span>Roll  </span> <span id="ov-roll">  0.0°</span></div>
+      <div><span>Pitch </span> <span id="ov-pitch">  0.0°</span></div>
+      <div><span>Yaw   </span> <span id="ov-yaw">  0.0°</span></div>
+      <div style="margin-top:4px"><span>q = </span><span id="ov-q">1 + 0i + 0j + 0k</span></div>
+    </div>
+    <div class="cam-hint">Drag = orbit &nbsp;|&nbsp; Scroll = zoom &nbsp;|&nbsp; Right-drag = pan</div>
+    <div class="gimbal-alert" id="gimbalAlert">⚠ GIMBAL LOCK — Pitch ≈ ±90°! Roll and Yaw axes are aligned — one degree of freedom is lost.</div>
+    <div id="demoStatus" style="display:none;position:absolute;bottom:52px;left:50%;transform:translateX(-50%);background:rgba(8,12,28,0.95);border:2px solid #ff8844;border-radius:12px;padding:12px 20px;font-size:0.82rem;font-weight:700;text-align:center;pointer-events:none;z-index:10;min-width:300px;max-width:480px;line-height:1.7"></div>
+  </div>
+
+  <div id="control-panel">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="euler">① Euler Angles</button>
+      <button class="tab-btn" data-tab="quat">② Quaternions</button>
+      <button class="tab-btn" data-tab="map">③ Mapping</button>
+    </div>
+
+    <!-- ═══════════ TAB 1: EULER ═══════════ -->
+    <div id="tab-euler" class="tab-content active">
+      <div class="section-title">Euler Angles — Roll · Pitch · Yaw</div>
+
+      <div class="info-box">
+        <strong>What are Euler Angles?</strong> Named after Leonhard Euler (1775), they describe an orientation using <strong>3 sequential intrinsic rotations</strong> about the <em>body's own axes</em> (not world axes — each rotation changes the frame for the next).<br><br>
+        <span class="formula">R_total = R_yaw × R_pitch × R_roll</span><br><br>
+        Order used here (YZX): first Yaw (world Y), then Pitch (rotated Z — now lateral), then Roll (doubly-rotated X — now longitudinal). <strong>Pitch is the middle rotation</strong>, so gimbal lock strikes at <strong>Pitch = ±90°</strong>.
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:0.75rem">
+        <span style="color:#c0d0f0;font-weight:600">Rotation Order:</span>
+        <select class="order-select" id="eulerOrder">
+          <option value="YZX" selected>YZX (Yaw→Pitch→Roll) — Aerospace ✓</option>
+          <option value="YXZ">YXZ (Yaw→Roll→Pitch)</option>
+          <option value="ZYX">ZYX</option>
+          <option value="XYZ">XYZ</option>
+          <option value="ZXY">ZXY</option>
+          <option value="XZY">XZY</option>
+        </select>
+      </div>
+
+      <!-- Roll -->
+      <div class="ctrl-group">
+        <div class="ctrl-label">
+          <span><span class="axis-dot dot-x"></span><span class="tooltip" data-tip="Rotation about the X-axis (longitudinal). Wings tilt left/right.">Roll (φ) — X axis</span></span>
+          <span class="val" id="rollVal">0.0°</span>
+        </div>
+        <input type="range" class="slider-roll" id="rollSlider" min="-180" max="180" value="0" step="0.5">
+      </div>
+
+      <!-- Pitch -->
+      <div class="ctrl-group">
+        <div class="ctrl-label">
+          <span><span class="axis-dot dot-z"></span><span class="tooltip" data-tip="Rotation about the Z-axis (lateral). Nose tilts up/down.">Pitch (θ) — Z axis</span></span>
+          <span class="val" id="pitchVal">0.0°</span>
+        </div>
+        <input type="range" class="slider-pitch" id="pitchSlider" min="-90" max="90" value="0" step="0.5">
+      </div>
+
+      <!-- Yaw -->
+      <div class="ctrl-group">
+        <div class="ctrl-label">
+          <span><span class="axis-dot dot-y"></span><span class="tooltip" data-tip="Rotation about the Y-axis (vertical). Nose turns left/right.">Yaw (ψ) — Y axis</span></span>
+          <span class="val" id="yawVal">0.0°</span>
+        </div>
+        <input type="range" class="slider-yaw" id="yawSlider" min="-180" max="180" value="0" step="0.5">
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="resetEuler">↺ Reset</button>
+        <button class="btn btn-warn" id="gimbalDemo">⚠ Show Gimbal Lock</button>
+        <button class="btn btn-success" id="animEuler">▶ Animate</button>
+      </div>
+
+      <div class="section-title" style="margin-top:4px">Rotation Matrix</div>
+      <div class="matrix-display" id="rotMatrix">
+        <div class="mrow"><span class="mval" id="m00">1.000</span><span class="mval" id="m01">0.000</span><span class="mval" id="m02">0.000</span></div>
+        <div class="mrow"><span class="mval" id="m10">0.000</span><span class="mval" id="m11">1.000</span><span class="mval" id="m12">0.000</span></div>
+        <div class="mrow"><span class="mval" id="m20">0.000</span><span class="mval" id="m21">0.000</span><span class="mval" id="m22">1.000</span></div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="section-title">How Each Rotation Works</div>
+      <div class="formula-block">
+        <div><span class="fl">R_roll(φ) = </span></div>
+        <div style="margin-left:12px;color:#c0d0f0">
+          [1,  0,      0    ]<br>
+          [0,  cos(φ), −sin(φ)]<br>
+          [0,  sin(φ),  cos(φ)]
+        </div>
+        <div style="margin-top:8px"><span class="fl">R_pitch(θ) = </span></div>
+        <div style="margin-left:12px;color:#c0d0f0">
+          [ cos(θ), 0, sin(θ)]<br>
+          [  0,     1,  0    ]<br>
+          [−sin(θ), 0, cos(θ)]
+        </div>
+        <div style="margin-top:8px"><span class="fl">R_yaw(ψ) = </span></div>
+        <div style="margin-left:12px;color:#c0d0f0">
+          [cos(ψ), −sin(ψ), 0]<br>
+          [sin(ψ),  cos(ψ), 0]<br>
+          [ 0,      0,      1]
+        </div>
+      </div>
+      <div class="warn" id="gimbalWarn" style="display:none">⚠ <strong>Gimbal Lock Active!</strong> At Pitch=±90°, the body's Roll axis (🔴 X) has been rotated by pitch until it points straight up — exactly where the Yaw axis (🟢 Y) already is. Both axes are now the same line in space, so Roll and Yaw sliders produce identical motion. You've permanently lost 1 DOF until pitch moves away from ±90°.</div>
+    </div>
+
+    <!-- ═══════════ TAB 2: QUATERNIONS ═══════════ -->
+    <div id="tab-quat" class="tab-content">
+      <div class="section-title">Quaternions — The Gimbal-Free Rotation</div>
+
+      <div class="info-box">
+        <strong>What is a Quaternion?</strong> A 4D extension of complex numbers: <span class="formula">q = w + xi + yj + zk</span><br><br>
+        For rotation, we use <strong>unit quaternions</strong> (|q|=1):<br>
+        <span class="formula">q = cos(θ/2) + sin(θ/2)(xî + yĵ + zk̂)</span><br><br>
+        where <em>(x,y,z)</em> is the unit rotation axis and <em>θ</em> is the rotation angle. Invented by W.R. Hamilton in 1843.
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-primary" id="modeAxisAngle" style="flex:1;opacity:1">Axis-Angle Mode ✓</button>
+        <button class="btn btn-primary" id="modeComponents" style="flex:1;opacity:.5">Component Mode</button>
+      </div>
+
+      <!-- Axis-Angle Mode -->
+      <div id="axisAngleMode">
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span><span class="axis-dot dot-p"></span>Rotation Angle (θ)</span>
+            <span class="val" id="qAngleVal">0.0°</span>
+          </div>
+          <input type="range" class="slider-angle" id="qAngleSlider" min="-180" max="180" value="0" step="0.5">
+        </div>
+        <div style="font-size:0.73rem;color:#7090c0;margin-bottom:8px;font-weight:600">Rotation Axis (unit vector — will be normalized)</div>
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span><span class="axis-dot dot-x"></span>Axis X</span>
+            <span class="val" id="qAxVal">1.00</span>
+          </div>
+          <input type="range" class="slider-ax" id="qAxSlider" min="-1" max="1" value="1" step="0.01">
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span><span class="axis-dot dot-y"></span>Axis Y</span>
+            <span class="val" id="qAyVal">0.00</span>
+          </div>
+          <input type="range" class="slider-ay" id="qAySlider" min="-1" max="1" value="0" step="0.01">
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span><span class="axis-dot dot-z"></span>Axis Z</span>
+            <span class="val" id="qAzVal">0.00</span>
+          </div>
+          <input type="range" class="slider-az" id="qAzSlider" min="-1" max="1" value="0" step="0.01">
+        </div>
+      </div>
+
+      <!-- Component Mode -->
+      <div id="componentMode" style="display:none">
+        <div style="font-size:0.7rem;color:#7090c0;margin-bottom:8px">Set x,y,z freely — w is auto-computed to keep |q|=1</div>
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span><span class="axis-dot dot-x"></span>x (i component)</span>
+            <span class="val" id="qxVal">0.00</span>
+          </div>
+          <input type="range" class="slider-x" id="qxSlider" min="-1" max="1" value="0" step="0.01">
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span><span class="axis-dot dot-y"></span>y (j component)</span>
+            <span class="val" id="qyVal">0.00</span>
+          </div>
+          <input type="range" class="slider-y" id="qySlider" min="-1" max="1" value="0" step="0.01">
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span><span class="axis-dot dot-z"></span>z (k component)</span>
+            <span class="val" id="qzVal">0.00</span>
+          </div>
+          <input type="range" class="slider-z" id="qzSlider" min="-1" max="1" value="0" step="0.01">
+        </div>
+        <div class="ctrl-label" style="margin-bottom:4px">
+          <span><span class="axis-dot dot-w"></span>w (auto-computed)</span>
+          <span class="val" id="qwVal">1.00</span>
+        </div>
+        <div class="mag-bar-bg"><div class="mag-bar" id="magBar" style="width:100%"></div></div>
+        <div style="font-size:0.68rem;color:#5070a0;margin-top:3px;text-align:right">|q| = <span id="magVal">1.000</span></div>
+      </div>
+
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-primary" id="resetQuat">↺ Reset</button>
+        <button class="btn btn-success" id="animQuat">▶ Animate</button>
+        <button class="btn btn-primary" id="slerpDemo">↔ SLERP</button>
+      </div>
+
+      <div class="sep"></div>
+      <div class="section-title">Live Quaternion Values</div>
+      <div class="quat-display" id="quatDisplay">
+        <div><span style="color:#ffd055">w</span> = <span id="qd-w" style="color:#ffd055"> 1.0000</span></div>
+        <div><span style="color:#ff6655">x</span> = <span id="qd-x" style="color:#ff6655"> 0.0000</span></div>
+        <div><span style="color:#55ff88">y</span> = <span id="qd-y" style="color:#55ff88"> 0.0000</span></div>
+        <div><span style="color:#5599ff">z</span> = <span id="qd-z" style="color:#5599ff"> 0.0000</span></div>
+        <div style="margin-top:4px;color:#7090b0;font-size:0.68rem">Axis: <span id="qd-axis" style="color:#a0c0e0">(1, 0, 0)</span> &nbsp;|&nbsp; Angle: <span id="qd-ang" style="color:#a78bfa">0.0°</span></div>
+      </div>
+
+      <div class="section-title">Why Quaternions Beat Euler</div>
+      <div class="formula-block">
+        <div><span class="fn">✓ No Gimbal Lock</span> — always 3 DOF</div>
+        <div><span class="fn">✓ Compact</span> — only 4 numbers</div>
+        <div><span class="fn">✓ SLERP</span> — smooth interpolation:</div>
+        <div style="margin-left:12px;color:#c0d0f0">slerp(q1,q2,t) =</div>
+        <div style="margin-left:12px;color:#c0d0f0">q1·sin((1-t)Ω)/sin(Ω) +</div>
+        <div style="margin-left:12px;color:#c0d0f0">q2·sin(tΩ)/sin(Ω)</div>
+        <div style="margin-top:6px"><span class="fn">✓ Composition:</span></div>
+        <div style="margin-left:12px;color:#c0d0f0">q_total = q2 ⊗ q1</div>
+        <div style="margin-top:6px"><span class="fl">Rotating vector v:</span></div>
+        <div style="margin-left:12px;color:#c0d0f0">v' = q ⊗ v ⊗ q*</div>
+      </div>
+    </div>
+
+    <!-- ═══════════ TAB 3: MAPPING ═══════════ -->
+    <div id="tab-map" class="tab-content">
+      <div class="section-title">Euler ↔ Quaternion Mapping</div>
+
+      <div class="info-box">
+        <strong>Converting between representations:</strong> Both describe the same rotation — just different parameterizations. The mapping uses <strong>half-angle formulas</strong> and is always possible. Convention used: <strong>YZX intrinsic</strong> (Yaw→Pitch→Roll), matching the Euler tab.
+      </div>
+
+      <div class="sync-indicator">
+        <div class="sync-dot"></div>
+        <span>Live sync — adjust either side to update the other</span>
+      </div>
+
+      <div class="mapping-row">
+        <div class="mapping-card">
+          <h4>🔴🟢🔵 Euler → Q</h4>
+          <div class="ctrl-group">
+            <div class="ctrl-label">
+              <span style="font-size:0.7rem"><span class="axis-dot dot-x"></span>Roll (φ)</span>
+              <span class="val" style="font-size:0.72rem" id="mRollVal">0°</span>
+            </div>
+            <input type="range" class="slider-roll" id="mRollSlider" min="-180" max="180" value="0" step="1">
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-label">
+              <span style="font-size:0.7rem"><span class="axis-dot dot-z"></span>Pitch (θ)</span>
+              <span class="val" style="font-size:0.72rem" id="mPitchVal">0°</span>
+            </div>
+            <input type="range" class="slider-pitch" id="mPitchSlider" min="-90" max="90" value="0" step="1">
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-label">
+              <span style="font-size:0.7rem"><span class="axis-dot dot-y"></span>Yaw (ψ)</span>
+              <span class="val" style="font-size:0.72rem" id="mYawVal">0°</span>
+            </div>
+            <input type="range" class="slider-yaw" id="mYawSlider" min="-180" max="180" value="0" step="1">
+          </div>
+        </div>
+        <div class="mapping-card">
+          <h4>🟡 Quaternion → E</h4>
+          <div style="font-size:0.7rem;margin-bottom:6px">Axis-Angle input:</div>
+          <div class="ctrl-group">
+            <div class="ctrl-label"><span style="font-size:0.68rem"><span class="axis-dot dot-p"></span>Angle</span><span class="val" style="font-size:0.7rem" id="mAngVal">0°</span></div>
+            <input type="range" class="slider-angle" id="mAngSlider" min="-180" max="180" value="0" step="1">
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-label"><span style="font-size:0.68rem"><span class="axis-dot dot-x"></span>Ax</span><span class="val" style="font-size:0.7rem" id="mAxVal">1.0</span></div>
+            <input type="range" class="slider-ax" id="mAxSlider" min="-1" max="1" value="1" step="0.05">
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-label"><span style="font-size:0.68rem"><span class="axis-dot dot-y"></span>Ay</span><span class="val" style="font-size:0.7rem" id="mAyVal">0.0</span></div>
+            <input type="range" class="slider-ay" id="mAySlider" min="-1" max="1" value="0" step="0.05">
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-label"><span style="font-size:0.68rem"><span class="axis-dot dot-z"></span>Az</span><span class="val" style="font-size:0.7rem" id="mAzVal">0.0</span></div>
+            <input type="range" class="slider-az" id="mAzSlider" min="-1" max="1" value="0" step="0.05">
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Equivalent Representations</div>
+      <div class="euler-display" id="mapEulerDisplay">
+        Roll=0.0° · Pitch=0.0° · Yaw=0.0°
+      </div>
+      <div class="quat-display" id="mapQuatDisplay">
+        q = 1.0000 + 0.0000i + 0.0000j + 0.0000k
+      </div>
+
+      <div class="section-title">Conversion Formulas (ZYX Order)</div>
+      <div class="formula-block" style="font-size:0.66rem;line-height:1.9">
+        <div style="color:#7090b0;margin-bottom:4px">— Euler → Quaternion —</div>
+        <div><span class="fl">cy</span>=cos(ψ/2), <span class="fl">sy</span>=sin(ψ/2)</div>
+        <div><span class="fl">cp</span>=cos(θ/2), <span class="fl">sp</span>=sin(θ/2)</div>
+        <div><span class="fl">cr</span>=cos(φ/2), <span class="fl">sr</span>=sin(φ/2)</div>
+        <div style="margin-top:4px"><span class="fn">w</span> = cr·cp·cy + sr·sp·sy</div>
+        <div><span class="fn">x</span> = sr·cp·cy − cr·sp·sy</div>
+        <div><span class="fn">y</span> = cr·sp·cy + sr·cp·sy</div>
+        <div><span class="fn">z</span> = cr·cp·sy − sr·sp·cy</div>
+        <div style="color:#7090b0;margin-top:8px;margin-bottom:4px">— Quaternion → Euler —</div>
+        <div><span class="fn">φ</span> = atan2(2(wy+xz), 1−2(y²+x²))</div>
+        <div><span class="fn">θ</span> = arcsin(2(wz−xy))</div>
+        <div><span class="fn">ψ</span> = atan2(2(wx+yz), 1−2(z²+x²))</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="resetMap">↺ Reset All</button>
+        <button class="btn btn-success" id="animMap">▶ Animate</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ─────────────────────────────────────────────
+// THREE.JS SETUP
+// ─────────────────────────────────────────────
+const canvas = document.getElementById('glCanvas');
+const container = document.getElementById('canvas-container');
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x080c18);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+camera.position.set(12, 8, 14);
+camera.lookAt(0, 0, 0);
+
+// Lighting
+const ambient = new THREE.AmbientLight(0x303050, 0.8);
+scene.add(ambient);
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(10, 15, 8);
+sun.castShadow = true;
+sun.shadow.mapSize.width = 1024;
+sun.shadow.mapSize.height = 1024;
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0x4060a0, 0.4);
+fill.position.set(-8, 5, -10);
+scene.add(fill);
+
+// Grid
+const gridHelper = new THREE.GridHelper(20, 20, 0x1a2540, 0x111828);
+scene.add(gridHelper);
+
+// World Axes (fixed)
+const worldAxes = new THREE.Group();
+const makeArrow = (dir, color, len=3.5) => {
+  const d = dir.clone().normalize();
+  const arr = new THREE.ArrowHelper(d, new THREE.Vector3(0,0,0), len, color, 0.4, 0.2);
+  return arr;
+};
+worldAxes.add(makeArrow(new THREE.Vector3(1,0,0), 0xff333333, 3.5));
+worldAxes.add(makeArrow(new THREE.Vector3(0,1,0), 0x33ff3333, 3.5));
+worldAxes.add(makeArrow(new THREE.Vector3(0,0,1), 0x3333ff33, 3.5));
+worldAxes.children.forEach(a=>{ a.line.material.opacity=0.3; a.line.material.transparent=true; a.cone.material.opacity=0.3; a.cone.material.transparent=true; });
+scene.add(worldAxes);
+
+// ─────────────────────────────────────────────
+// AIRPLANE MODEL
+// ─────────────────────────────────────────────
+function createAirplane() {
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshPhongMaterial({ color: 0x3366cc, shininess: 120, specular: 0x4488ff });
+  const wingMat = new THREE.MeshPhongMaterial({ color: 0x2255aa, shininess: 90, specular: 0x4477dd });
+  const tailMat = new THREE.MeshPhongMaterial({ color: 0x1a4499, shininess: 80 });
+  const engineMat = new THREE.MeshPhongMaterial({ color: 0x555566, shininess: 200, specular: 0x9999bb });
+  const glassMat = new THREE.MeshPhongMaterial({ color: 0x88ccff, transparent:true, opacity:0.65, shininess:300, specular:0xffffff });
+  const accentMat = new THREE.MeshPhongMaterial({ color: 0xff4422, shininess: 100 });
+
+  // Fuselage — CylinderGeometry rotated to align with X axis (nose at +X)
+  const fus = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.22,5.5,14), bodyMat);
+  fus.rotation.z = Math.PI/2; group.add(fus);
+
+  // Nose cone
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.28,1.4,14), bodyMat);
+  nose.rotation.z = -Math.PI/2; nose.position.x = 3.45; group.add(nose);
+
+  // Tail taper
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.9,12), bodyMat);
+  tail.rotation.z = Math.PI/2; tail.position.x = -3.4; group.add(tail);
+
+  // Main wings (swept)
+  const makeWing = (side) => {
+    const pts = [];
+    pts.push(new THREE.Vector3(0.5,0,0));
+    pts.push(new THREE.Vector3(-0.8,0,side*3.8));
+    pts.push(new THREE.Vector3(-1.1,0,side*4.0));
+    pts.push(new THREE.Vector3(-1.0,0,side*3.9));
+    const shape = new THREE.Shape();
+    shape.moveTo(0.5,0); shape.lineTo(-0.8,side*3.8); shape.lineTo(-1.1,side*4.0);
+    shape.lineTo(-1.3,side*2.0); shape.lineTo(-0.5,0); shape.closePath();
+    const geom = new THREE.ExtrudeGeometry(shape, {depth:0.07,bevelEnabled:false});
+    const mesh = new THREE.Mesh(geom, wingMat);
+    mesh.rotation.x = -Math.PI/2;
+    return mesh;
+  };
+  group.add(makeWing(1)); group.add(makeWing(-1));
+
+  // Horizontal stabilizer
+  const makeHTail = (side) => {
+    const shape = new THREE.Shape();
+    shape.moveTo(0.3,0); shape.lineTo(-0.5,side*1.6); shape.lineTo(-0.8,side*1.7);
+    shape.lineTo(-0.7,0); shape.closePath();
+    const geom = new THREE.ExtrudeGeometry(shape, {depth:0.06,bevelEnabled:false});
+    const mesh = new THREE.Mesh(geom, tailMat);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.position.x = -2.8; return mesh;
+  };
+  group.add(makeHTail(1)); group.add(makeHTail(-1));
+
+  // Vertical stabilizer
+  const vShape = new THREE.Shape();
+  vShape.moveTo(0.3,0); vShape.lineTo(-0.5,1.5); vShape.lineTo(-0.8,1.6); vShape.lineTo(-0.7,0); vShape.closePath();
+  const vGeom = new THREE.ExtrudeGeometry(vShape, {depth:0.06,bevelEnabled:false});
+  const vFin = new THREE.Mesh(vGeom, tailMat);
+  vFin.rotation.z = Math.PI/2; vFin.position.x = -2.8; vFin.position.y = 0.03; group.add(vFin);
+
+  // Engines x2
+  for(const side of [-1,1]) {
+    const eng = new THREE.Group();
+    const nacelle = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.17,1.4,12), engineMat);
+    nacelle.rotation.z = Math.PI/2; eng.add(nacelle);
+    const inlet = new THREE.Mesh(new THREE.TorusGeometry(0.2,0.04,8,12), engineMat);
+    inlet.position.x = 0.7; eng.add(inlet);
+    eng.position.set(-0.4, -0.32, side*2.2); group.add(eng);
+  }
+
+  // Cockpit
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.22,10,8,0,Math.PI*2,0,Math.PI*0.6), glassMat);
+  cockpit.position.set(2.0, 0.22, 0); group.add(cockpit);
+
+  // Red stripe accent
+  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.285,0.225,0.25,14), accentMat);
+  stripe.rotation.z = Math.PI/2; stripe.position.x = 1.5; group.add(stripe);
+
+  return group;
+}
+
+const airplaneGroup = new THREE.Group();
+const airplane = createAirplane();
+airplaneGroup.add(airplane);
+scene.add(airplaneGroup);
+
+// Body axes (move with plane)
+const bodyAxesGroup = new THREE.Group();
+bodyAxesGroup.add(makeArrow(new THREE.Vector3(1,0,0), 0xff4444, 4.5));
+bodyAxesGroup.add(makeArrow(new THREE.Vector3(0,1,0), 0x44ff88, 4.5));
+bodyAxesGroup.add(makeArrow(new THREE.Vector3(0,0,1), 0x4488ff, 4.5));
+airplaneGroup.add(bodyAxesGroup);
+
+// ─────────────────────────────────────────────
+// GIMBAL RING ASSEMBLY  (nested, world-anchored)
+// Mirrors the YZX rotation order:
+//   yawGimbal   – outer  – rotates around world Y
+//     pitchGimbal – middle – rotates around local Z (after yaw)
+//       rollGimbal  – inner  – rotates around local X (after yaw+pitch)
+// When pitch = ±90° the inner (roll) ring coplanarises with the outer
+// (yaw) ring → both spin around world Y → gimbal lock visible!
+// ─────────────────────────────────────────────
+
+const gimbalMat = (color, opacity=0.55) => new THREE.MeshPhongMaterial({
+  color, transparent:true, opacity, side:THREE.DoubleSide,
+  shininess:120, specular:0xffffff, emissive:color, emissiveIntensity:0.08
+});
+
+// Ring tube helper (creates an arc-completed torus with optional gap markers)
+function makeRing(radius, tube, color, opacity) {
+  const mat = gimbalMat(color, opacity);
+  const torus = new THREE.Mesh(
+    new THREE.TorusGeometry(radius, tube, 10, 90),
+    mat
+  );
+  return torus;
+}
+
+// --- Outer gimbal: YAW — ring lies flat (horizontal, axis = Y) ---
+const yawGimbal  = new THREE.Group();
+const yawRing    = makeRing(6.8, 0.11, 0x44ff88, 0.5);
+yawRing.rotation.x = Math.PI / 2;   // default torus in XY → rotate to XZ (horizontal)
+
+// Tick marks every 90° on the yaw ring so orientation is readable
+const yawTickMat = new THREE.MeshBasicMaterial({ color:0x44ff88, transparent:true, opacity:0.8 });
+for(let a=0; a<4; a++){
+  const tick = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.5), yawTickMat);
+  const ang = a * Math.PI/2;
+  tick.position.set(Math.cos(ang)*6.8, 0, Math.sin(ang)*6.8);
+  yawGimbal.add(tick);
+}
+yawGimbal.add(yawRing);
+scene.add(yawGimbal);   // fixed in world, manually rotated
+
+// --- Middle gimbal: PITCH — ring is a vertical hoop (axis = local Z after yaw) ---
+const pitchGimbal = new THREE.Group();
+const pitchRing   = makeRing(5.2, 0.09, 0x4488ff, 0.5);
+// Default torus is in XY plane (axis=Z) — that's exactly pitch axis. No extra rotation.
+
+const pitchTickMat = new THREE.MeshBasicMaterial({ color:0x4488ff, transparent:true, opacity:0.8 });
+for(let a=0; a<4; a++){
+  const tick = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.5, 0.05), pitchTickMat);
+  const ang = a * Math.PI/2;
+  tick.position.set(Math.cos(ang)*5.2, Math.sin(ang)*5.2, 0);
+  pitchGimbal.add(tick);
+}
+pitchGimbal.add(pitchRing);
+yawGimbal.add(pitchGimbal);   // child of yaw → inherits yaw rotation
+
+// --- Inner gimbal: ROLL — ring is a sideways hoop (axis = local X after yaw+pitch) ---
+const rollGimbal = new THREE.Group();
+const rollRing   = makeRing(3.8, 0.08, 0xff4444, 0.55);
+rollRing.rotation.y = Math.PI / 2;  // default torus in XY (axis=Z) → rotate to YZ (axis=X)
+
+const rollTickMat = new THREE.MeshBasicMaterial({ color:0xff4444, transparent:true, opacity:0.8 });
+for(let a=0; a<4; a++){
+  const tick = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.5, 0.05), rollTickMat);
+  const ang = a * Math.PI/2;
+  tick.position.set(0, Math.sin(ang)*3.8, Math.cos(ang)*3.8);
+  rollGimbal.add(tick);
+}
+rollGimbal.add(rollRing);
+pitchGimbal.add(rollGimbal);  // child of pitch → inherits yaw+pitch rotation
+
+// Store ring materials for gimbal-lock highlight
+const gimbalRingMats = { yaw: yawRing.material, pitch: pitchRing.material, roll: rollRing.material };
+
+// Helper: show/hide entire gimbal assembly
+const setGimbalVisible = (v) => {
+  yawGimbal.visible = v;
+};
+setGimbalVisible(true);   // Euler tab is default — show rings immediately
+
+// ─────────────────────────────────────────────
+// CAMERA ORBIT
+// ─────────────────────────────────────────────
+let camTheta = 40, camPhi = 28, camRadius = 20;
+let isDragging = false, isRightDrag = false;
+let lastMX = 0, lastMY = 0;
+let panX = 0, panY = 0;
+let slerpActive = false, slerpT = 0;
+
+const updateCamera = () => {
+  const tRad = THREE.MathUtils.degToRad(camTheta);
+  const pRad = THREE.MathUtils.degToRad(camPhi);
+  camera.position.set(
+    panX + camRadius * Math.cos(pRad) * Math.sin(tRad),
+    panY + camRadius * Math.sin(pRad),
+    camRadius * Math.cos(pRad) * Math.cos(tRad)
+  );
+  camera.lookAt(panX, panY, 0);
+};
+updateCamera();
+
+canvas.addEventListener('mousedown', e => {
+  isDragging = true;
+  isRightDrag = e.button === 2;
+  lastMX = e.clientX; lastMY = e.clientY;
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('mouseup', () => { isDragging = false; });
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastMX, dy = e.clientY - lastMY;
+  if (isRightDrag) { panX -= dx*0.02; panY += dy*0.02; }
+  else { camTheta -= dx*0.4; camPhi = Math.max(5, Math.min(80, camPhi + dy*0.4)); }
+  lastMX = e.clientX; lastMY = e.clientY;
+  updateCamera();
+});
+canvas.addEventListener('wheel', e => {
+  camRadius = Math.max(5, Math.min(40, camRadius + e.deltaY*0.03));
+  updateCamera();
+});
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let activeTab = 'euler';
+let eulerAnim = false, quatAnim = false, mapAnim = false;
+let eulerAnimT = 0, quatAnimT = 0, mapAnimT = 0;
+let currentMode = 'axis-angle'; // or 'component'
+
+const state = {
+  roll: 0, pitch: 0, yaw: 0,
+  eulerOrder: 'YZX',
+  qw: 1, qx: 0, qy: 0, qz: 0,
+  qAngle: 0, qAx: 1, qAy: 0, qAz: 0,
+  mRoll:0, mPitch:0, mYaw:0,
+  mAngle:0, mAx:1, mAy:0, mAz:0
+};
+
+// ─────────────────────────────────────────────
+// EULER LOGIC
+// ─────────────────────────────────────────────
+function applyEuler(roll, pitch, yaw, order) {
+  const r = THREE.MathUtils.degToRad(roll);
+  const p = THREE.MathUtils.degToRad(pitch);
+  const y = THREE.MathUtils.degToRad(yaw);
+  airplaneGroup.rotation.set(r, y, p, order);
+
+  // Drive the nested gimbal ring assembly to match:
+  // yawGimbal: outer ring – only yaw (world Y)
+  yawGimbal.rotation.y = y;
+  // pitchGimbal: middle ring – only pitch in yaw's local frame (local Z)
+  pitchGimbal.rotation.z = p;
+  // rollGimbal: inner ring – only roll in pitch's local frame (local X)
+  rollGimbal.rotation.x = r;
+
+  // Gimbal-lock highlight: when |pitch| → 90° the inner (roll) ring
+  // and outer (yaw) ring become coplanar – flash both to orange-red
+  const lockFactor = Math.max(0, (Math.abs(pitch) - 70) / 20); // 0 at 70°, 1 at 90°
+  const lerpColor = (a, b, t) => {
+    const ca = new THREE.Color(a), cb = new THREE.Color(b);
+    return ca.lerp(cb, t);
+  };
+  gimbalRingMats.yaw.color.copy(lerpColor(0x44ff88, 0xff6600, lockFactor));
+  gimbalRingMats.roll.color.copy(lerpColor(0xff4444, 0xff6600, lockFactor));
+  gimbalRingMats.yaw.emissive.copy(lerpColor(0x44ff88, 0xff4400, lockFactor));
+  gimbalRingMats.roll.emissive.copy(lerpColor(0xff4444, 0xff4400, lockFactor));
+  gimbalRingMats.yaw.emissiveIntensity  = 0.08 + lockFactor * 0.5;
+  gimbalRingMats.roll.emissiveIntensity = 0.08 + lockFactor * 0.5;
+  gimbalRingMats.yaw.opacity  = 0.50 + lockFactor * 0.35;
+  gimbalRingMats.roll.opacity = 0.55 + lockFactor * 0.35;
+
+  updateOverlay(roll, pitch, yaw);
+  updateMatrixDisplay();
+  updateQuatFromEuler();
+}
+
+function updateOverlay(roll, pitch, yaw) {
+  document.getElementById('ov-roll').textContent = roll.toFixed(1) + '°';
+  document.getElementById('ov-pitch').textContent = pitch.toFixed(1) + '°';
+  document.getElementById('ov-yaw').textContent = yaw.toFixed(1) + '°';
+  const q = airplaneGroup.quaternion;
+  document.getElementById('ov-q').textContent =
+    fmt(q.w)+'+'+ fmt(q.x)+'i+'+ fmt(q.y)+'j+'+ fmt(q.z)+'k';
+}
+
+function fmt(v){ return v.toFixed(3); }
+
+function updateMatrixDisplay() {
+  const m = new THREE.Matrix4();
+  m.makeRotationFromEuler(airplaneGroup.rotation);
+  const e = m.elements; // column-major
+  for(let r=0;r<3;r++) for(let c=0;c<3;c++) {
+    const el = document.getElementById('m'+r+c);
+    if(el) el.textContent = e[c*4+r].toFixed(3);
+  }
+}
+
+function updateQuatFromEuler() {
+  const q = airplaneGroup.quaternion;
+  document.getElementById('qd-w').textContent = ' '+fmt(q.w);
+  document.getElementById('qd-x').textContent = ' '+fmt(q.x);
+  document.getElementById('qd-y').textContent = ' '+fmt(q.y);
+  document.getElementById('qd-z').textContent = ' '+fmt(q.z);
+  // Axis-angle from quaternion
+  const angle = 2 * Math.acos(Math.max(-1, Math.min(1, q.w)));
+  const s = Math.sin(angle/2);
+  let ax=1,ay=0,az=0;
+  if(s > 0.001) { ax=q.x/s; ay=q.y/s; az=q.z/s; }
+  document.getElementById('qd-axis').textContent = `(${ax.toFixed(2)}, ${ay.toFixed(2)}, ${az.toFixed(2)})`;
+  document.getElementById('qd-ang').textContent = THREE.MathUtils.radToDeg(angle).toFixed(1) + '°';
+}
+
+function checkGimbalLock(pitch) {
+  const isGL = Math.abs(Math.abs(pitch) - 90) < 3;
+  document.getElementById('gimbalWarn').style.display = isGL ? 'block' : 'none';
+  document.getElementById('gimbalAlert').style.display = isGL ? 'block' : 'none';
+}
+
+// ─────────────────────────────────────────────
+// QUATERNION LOGIC
+// ─────────────────────────────────────────────
+function applyAxisAngle(ax, ay, az, angleDeg) {
+  let len = Math.sqrt(ax*ax+ay*ay+az*az);
+  if(len < 0.001) { ax=1; ay=0; az=0; len=1; }
+  ax/=len; ay/=len; az/=len;
+  const a = THREE.MathUtils.degToRad(angleDeg) / 2;
+  const s = Math.sin(a);
+  const qw=Math.cos(a), qx=s*ax, qy=s*ay, qz=s*az;
+  airplaneGroup.quaternion.set(qx, qy, qz, qw);
+  updateQuatDisplay(qw,qx,qy,qz,ax,ay,az,angleDeg);
+  updateOverlayFromQ();
+}
+
+function applyComponents(qx, qy, qz) {
+  const sum = qx*qx + qy*qy + qz*qz;
+  const qw = sum <= 1 ? Math.sqrt(1-sum) : 0;
+  const len = Math.sqrt(qw*qw+qx*qx+qy*qy+qz*qz)||1;
+  airplaneGroup.quaternion.set(qx/len, qy/len, qz/len, qw/len);
+  document.getElementById('qwVal').textContent = (qw/len).toFixed(2);
+  document.getElementById('magVal').textContent = Math.sqrt(sum+qw*qw).toFixed(3);
+  document.getElementById('magBar').style.width = Math.min(100, Math.sqrt(sum+qw*qw)*100)+'%';
+  updateQuatDisplay(qw/len,qx/len,qy/len,qz/len);
+  updateOverlayFromQ();
+}
+
+function updateQuatDisplay(qw,qx,qy,qz,ax,ay,az,angleDeg) {
+  document.getElementById('qd-w').textContent = ' '+qw.toFixed(4);
+  document.getElementById('qd-x').textContent = ' '+qx.toFixed(4);
+  document.getElementById('qd-y').textContent = ' '+qy.toFixed(4);
+  document.getElementById('qd-z').textContent = ' '+qz.toFixed(4);
+  if(ax!==undefined) {
+    document.getElementById('qd-axis').textContent = `(${ax.toFixed(2)}, ${ay.toFixed(2)}, ${az.toFixed(2)})`;
+    document.getElementById('qd-ang').textContent = angleDeg.toFixed(1)+'°';
+  }
+}
+
+function updateOverlayFromQ() {
+  const q = airplaneGroup.quaternion;
+  const e = new THREE.Euler().setFromQuaternion(q, 'YZX');
+  const roll = THREE.MathUtils.radToDeg(e.x);
+  const yaw  = THREE.MathUtils.radToDeg(e.y);
+  const pitch = THREE.MathUtils.radToDeg(e.z);
+  updateOverlay(roll, pitch, yaw);
+}
+
+// ─────────────────────────────────────────────
+// MAPPING LOGIC
+// ─────────────────────────────────────────────
+function eulerToQuat(roll, pitch, yaw) {
+  // ZYX convention
+  const cr=Math.cos(roll/2),sr=Math.sin(roll/2);
+  const cp=Math.cos(pitch/2),sp=Math.sin(pitch/2);
+  const cy=Math.cos(yaw/2),sy=Math.sin(yaw/2);
+  return {
+    w: cr*cp*cy + sr*sp*sy,
+    x: sr*cp*cy - cr*sp*sy,
+    y: cr*sp*cy + sr*cp*sy,
+    z: cr*cp*sy - sr*sp*cy
+  };
+}
+
+function quatToEuler(w,x,y,z) {
+  // ZYX convention back to roll/pitch/yaw
+  const roll  = Math.atan2(2*(w*x+y*z), 1-2*(x*x+y*y));
+  const sinp  = 2*(w*y-z*x);
+  const pitch = Math.abs(sinp)>=1 ? Math.sign(sinp)*Math.PI/2 : Math.asin(sinp);
+  const yaw   = Math.atan2(2*(w*z+x*y), 1-2*(y*y+z*z));
+  return { roll, pitch, yaw };
+}
+
+function syncEulerToMap(roll, pitch, yaw) {
+  const rr=THREE.MathUtils.degToRad(roll);
+  const pr=THREE.MathUtils.degToRad(pitch);
+  const yr=THREE.MathUtils.degToRad(yaw);
+  const q = eulerToQuat(rr,pr,yr);
+  airplaneGroup.quaternion.set(q.x,q.y,q.z,q.w);
+  const ang = THREE.MathUtils.radToDeg(2*Math.acos(Math.max(-1,Math.min(1,q.w))));
+  const s = Math.sin(THREE.MathUtils.degToRad(ang)/2);
+  let ax=1,ay=0,az=0;
+  if(s>0.001){ax=q.x/s;ay=q.y/s;az=q.z/s;}
+
+  // Update map Q sliders
+  suppressMapQ = true;
+  document.getElementById('mAngSlider').value = ang.toFixed(1);
+  document.getElementById('mAxSlider').value = ax.toFixed(3);
+  document.getElementById('mAySlider').value = ay.toFixed(3);
+  document.getElementById('mAzSlider').value = az.toFixed(3);
+  document.getElementById('mAngVal').textContent = ang.toFixed(1)+'°';
+  document.getElementById('mAxVal').textContent = ax.toFixed(2);
+  document.getElementById('mAyVal').textContent = ay.toFixed(2);
+  document.getElementById('mAzVal').textContent = az.toFixed(2);
+  suppressMapQ = false;
+
+  document.getElementById('mapEulerDisplay').textContent =
+    `Roll=${roll.toFixed(1)}° · Pitch=${pitch.toFixed(1)}° · Yaw=${yaw.toFixed(1)}°`;
+  document.getElementById('mapQuatDisplay').textContent =
+    `q = ${q.w.toFixed(4)} + ${q.x.toFixed(4)}i + ${q.y.toFixed(4)}j + ${q.z.toFixed(4)}k`;
+  updateOverlay(roll, pitch, yaw);
+}
+
+let suppressMapQ = false;
+function syncQuatToMap(ax, ay, az, angleDeg) {
+  let len=Math.sqrt(ax*ax+ay*ay+az*az);
+  if(len<0.001){ax=1;ay=0;az=0;len=1;}
+  ax/=len;ay/=len;az/=len;
+  const a=THREE.MathUtils.degToRad(angleDeg)/2;
+  const s=Math.sin(a);
+  const qw=Math.cos(a),qx=s*ax,qy=s*ay,qz=s*az;
+  airplaneGroup.quaternion.set(qx,qy,qz,qw);
+  const eu = quatToEuler(qw,qx,qy,qz);
+  const roll  = THREE.MathUtils.radToDeg(eu.roll);
+  const pitch = THREE.MathUtils.radToDeg(eu.pitch);
+  const yaw   = THREE.MathUtils.radToDeg(eu.yaw);
+
+  // Update map Euler sliders
+  suppressMapE = true;
+  document.getElementById('mRollSlider').value = roll.toFixed(1);
+  document.getElementById('mPitchSlider').value = pitch.toFixed(1);
+  document.getElementById('mYawSlider').value = yaw.toFixed(1);
+  document.getElementById('mRollVal').textContent = roll.toFixed(1)+'°';
+  document.getElementById('mPitchVal').textContent = pitch.toFixed(1)+'°';
+  document.getElementById('mYawVal').textContent = yaw.toFixed(1)+'°';
+  suppressMapE = false;
+
+  document.getElementById('mapEulerDisplay').textContent =
+    `Roll=${roll.toFixed(1)}° · Pitch=${pitch.toFixed(1)}° · Yaw=${yaw.toFixed(1)}°`;
+  document.getElementById('mapQuatDisplay').textContent =
+    `q = ${qw.toFixed(4)} + ${qx.toFixed(4)}i + ${qy.toFixed(4)}j + ${qz.toFixed(4)}k`;
+  updateOverlay(roll, pitch, yaw);
+}
+let suppressMapE = false;
+
+// ─────────────────────────────────────────────
+// UI WIRING — EULER TAB
+// ─────────────────────────────────────────────
+const eulerSliders = {
+  roll: document.getElementById('rollSlider'),
+  pitch: document.getElementById('pitchSlider'),
+  yaw: document.getElementById('yawSlider')
+};
+
+const updateEulerUI = () => {
+  state.roll  = +eulerSliders.roll.value;
+  state.pitch = +eulerSliders.pitch.value;
+  state.yaw   = +eulerSliders.yaw.value;
+  document.getElementById('rollVal').textContent  = state.roll.toFixed(1)+'°';
+  document.getElementById('pitchVal').textContent = state.pitch.toFixed(1)+'°';
+  document.getElementById('yawVal').textContent   = state.yaw.toFixed(1)+'°';
+  applyEuler(state.roll, state.pitch, state.yaw, state.eulerOrder);
+  checkGimbalLock(state.pitch);
+};
+
+eulerSliders.roll.addEventListener('input', updateEulerUI);
+eulerSliders.pitch.addEventListener('input', updateEulerUI);
+eulerSliders.yaw.addEventListener('input', updateEulerUI);
+
+document.getElementById('eulerOrder').addEventListener('change', e => {
+  state.eulerOrder = e.target.value;
+  updateEulerUI();
+});
+
+document.getElementById('resetEuler').addEventListener('click', () => {
+  eulerSliders.roll.value = 0; eulerSliders.pitch.value = 0; eulerSliders.yaw.value = 0;
+  eulerAnim = false; updateEulerUI();
+});
+
+let gimbalDemoTimer = null;
+document.getElementById('gimbalDemo').addEventListener('click', () => {
+  // Cancel any running demo
+  if(gimbalDemoTimer) { clearInterval(gimbalDemoTimer); gimbalDemoTimer = null; }
+  eulerAnim = false;
+  document.getElementById('animEuler').textContent = '▶ Animate';
+
+  const status = document.getElementById('demoStatus');
+  const showStatus = (html) => { status.innerHTML = html; status.style.display = 'block'; };
+  const hideStatus = () => { status.style.display = 'none'; };
+
+  // --- Phase setup ---
+  // With order YZX: Yaw(Y) → Pitch(Z) → Roll(X)
+  // Gimbal lock at pitch (Z) = ±90°
+  // After pitch=90°, the plane's local X axis (roll) points straight up = world Y = yaw axis
+  // So rotating roll and rotating yaw produce EXACTLY the same motion
+  const PITCH = 90;
+  const SWEEP = 60; // degrees to swing roll/yaw
+  const FPS_DT = 25; // ms per frame
+  const FRAMES_PER_PHASE = 80; // frames for each sweep
+
+  let frame = 0;
+  let phase = 0; // 0=intro, 1=roll demo, 2=pause, 3=yaw demo, 4=done
+
+  // Reset to pitch=90, roll=0, yaw=0
+  eulerSliders.pitch.value = PITCH;
+  eulerSliders.roll.value  = 0;
+  eulerSliders.yaw.value   = 0;
+  updateEulerUI();
+
+  showStatus(
+    `<span style="color:#ff8844;font-size:1.1rem">⚠ GIMBAL LOCK DEMO</span><br>` +
+    `<span style="color:#a0c0e0;font-size:0.75rem">Pitch locked to 90° — nose pointing straight up.<br>` +
+    `Why? The plane's roll axis (🔴 X) has rotated<br>to align with the world yaw axis (🟢 Y).<br><br>` +
+    `Watch: <span style="color:#ff6655">ROLL</span> and <span style="color:#55ff88">YAW</span> will look IDENTICAL.</span>`
+  );
+
+  setTimeout(() => {
+    frame = 0; phase = 1;
+
+    gimbalDemoTimer = setInterval(() => {
+      eulerSliders.pitch.value = PITCH;
+
+      if(phase === 1) {
+        // Sweep roll left-right, yaw=0
+        const t = frame / FRAMES_PER_PHASE; // 0→1
+        const angle = Math.sin(t * Math.PI * 2) * SWEEP;
+        eulerSliders.roll.value = angle;
+        eulerSliders.yaw.value  = 0;
+        showStatus(
+          `<span style="color:#ff6655;font-size:1rem">Phase 1: Rotating ROLL (🔴 X axis)</span><br>` +
+          `<span style="font-family:monospace;color:#ffd055">Roll = ${angle.toFixed(1)}°, Yaw = 0°</span><br>` +
+          `<span style="color:#7090b0;font-size:0.72rem">Watch the plane motion carefully…</span>`
+        );
+        frame++;
+        if(frame > FRAMES_PER_PHASE) { frame = 0; phase = 2; }
+
+      } else if(phase === 2) {
+        // Brief pause, reset
+        eulerSliders.roll.value = 0;
+        eulerSliders.yaw.value  = 0;
+        showStatus(
+          `<span style="color:#ffd055;font-size:1rem">↔ Resetting… Now testing YAW</span><br>` +
+          `<span style="color:#7090b0;font-size:0.75rem">Roll → 0°, Yaw → 0°<br>The motion should look IDENTICAL!</span>`
+        );
+        frame++;
+        if(frame > 30) { frame = 0; phase = 3; }
+
+      } else if(phase === 3) {
+        // Sweep yaw left-right (same sweep, roll=0) — LOOKS IDENTICAL to phase 1
+        const t = frame / FRAMES_PER_PHASE;
+        const angle = Math.sin(t * Math.PI * 2) * SWEEP;
+        eulerSliders.roll.value = 0;
+        eulerSliders.yaw.value  = angle;
+        showStatus(
+          `<span style="color:#55ff88;font-size:1rem">Phase 2: Rotating YAW (🟢 Y axis)</span><br>` +
+          `<span style="font-family:monospace;color:#ffd055">Roll = 0°, Yaw = ${angle.toFixed(1)}°</span><br>` +
+          `<span style="color:#ff8844;font-size:0.72rem">⚠ Same motion as Roll! 1 DOF lost!</span>`
+        );
+        frame++;
+        if(frame > FRAMES_PER_PHASE) { frame = 0; phase = 4; }
+
+      } else if(phase === 4) {
+        eulerSliders.roll.value = 0;
+        eulerSliders.yaw.value  = 0;
+        showStatus(
+          `<span style="color:#55ff88;font-size:1rem">✓ Gimbal Lock Proven!</span><br>` +
+          `<span style="color:#a0c0e0;font-size:0.74rem">Roll and Yaw produced <strong style="color:#ff8844">identical</strong> motion.<br>` +
+          `Because: pitch=90° rotated the 🔴 body X axis<br>` +
+          `onto the 🟢 world Y axis — they became the SAME axis.<br><br>` +
+          `<span style="color:#7090b0">Quaternions have no such degeneracy → see Tab ②</span></span>`
+        );
+        clearInterval(gimbalDemoTimer);
+        gimbalDemoTimer = null;
+        setTimeout(hideStatus, 5000);
+      }
+
+      updateEulerUI();
+    }, FPS_DT);
+  }, 2500); // 2.5s to read the intro message
+});
+
+document.getElementById('animEuler').addEventListener('click', () => {
+  eulerAnim = !eulerAnim;
+  document.getElementById('animEuler').textContent = eulerAnim ? '⏸ Pause' : '▶ Animate';
+});
+
+// ─────────────────────────────────────────────
+// UI WIRING — QUATERNION TAB
+// ─────────────────────────────────────────────
+document.getElementById('modeAxisAngle').addEventListener('click', () => {
+  currentMode='axis-angle';
+  document.getElementById('axisAngleMode').style.display='block';
+  document.getElementById('componentMode').style.display='none';
+  document.getElementById('modeAxisAngle').style.opacity='1';
+  document.getElementById('modeComponents').style.opacity='.5';
+});
+document.getElementById('modeComponents').addEventListener('click', () => {
+  currentMode='component';
+  document.getElementById('axisAngleMode').style.display='none';
+  document.getElementById('componentMode').style.display='block';
+  document.getElementById('modeAxisAngle').style.opacity='.5';
+  document.getElementById('modeComponents').style.opacity='1';
+});
+
+const updateQuatAA = () => {
+  const ang = +document.getElementById('qAngleSlider').value;
+  const ax  = +document.getElementById('qAxSlider').value;
+  const ay  = +document.getElementById('qAySlider').value;
+  const az  = +document.getElementById('qAzSlider').value;
+  document.getElementById('qAngleVal').textContent = ang.toFixed(1)+'°';
+  document.getElementById('qAxVal').textContent = ax.toFixed(2);
+  document.getElementById('qAyVal').textContent = ay.toFixed(2);
+  document.getElementById('qAzVal').textContent = az.toFixed(2);
+  applyAxisAngle(ax,ay,az,ang);
+};
+['qAngleSlider','qAxSlider','qAySlider','qAzSlider'].forEach(id =>
+  document.getElementById(id).addEventListener('input', updateQuatAA));
+
+const updateQuatComp = () => {
+  const qx = +document.getElementById('qxSlider').value;
+  const qy = +document.getElementById('qySlider').value;
+  const qz = +document.getElementById('qzSlider').value;
+  document.getElementById('qxVal').textContent = qx.toFixed(2);
+  document.getElementById('qyVal').textContent = qy.toFixed(2);
+  document.getElementById('qzVal').textContent = qz.toFixed(2);
+  applyComponents(qx,qy,qz);
+};
+['qxSlider','qySlider','qzSlider'].forEach(id =>
+  document.getElementById(id).addEventListener('input', updateQuatComp));
+
+document.getElementById('resetQuat').addEventListener('click', () => {
+  document.getElementById('qAngleSlider').value=0;
+  document.getElementById('qAxSlider').value=1;
+  document.getElementById('qAySlider').value=0;
+  document.getElementById('qAzSlider').value=0;
+  document.getElementById('qxSlider').value=0;
+  document.getElementById('qySlider').value=0;
+  document.getElementById('qzSlider').value=0;
+  quatAnim=false; updateQuatAA();
+});
+
+document.getElementById('animQuat').addEventListener('click', () => {
+  quatAnim = !quatAnim;
+  document.getElementById('animQuat').textContent = quatAnim ? '⏸ Pause' : '▶ Animate';
+});
+
+document.getElementById('slerpDemo').addEventListener('click', () => {
+  slerpActive = true; slerpT = 0;
+  // SLERP from identity to current, back and forth
+});
+
+// ─────────────────────────────────────────────
+// UI WIRING — MAPPING TAB
+// ─────────────────────────────────────────────
+const syncMapEuler = () => {
+  if(suppressMapE) return;
+  const r = +document.getElementById('mRollSlider').value;
+  const p = +document.getElementById('mPitchSlider').value;
+  const y = +document.getElementById('mYawSlider').value;
+  document.getElementById('mRollVal').textContent = r+'°';
+  document.getElementById('mPitchVal').textContent = p+'°';
+  document.getElementById('mYawVal').textContent = y+'°';
+  syncEulerToMap(r,p,y);
+};
+['mRollSlider','mPitchSlider','mYawSlider'].forEach(id =>
+  document.getElementById(id).addEventListener('input', syncMapEuler));
+
+const syncMapQuat = () => {
+  if(suppressMapQ) return;
+  const ang = +document.getElementById('mAngSlider').value;
+  const ax  = +document.getElementById('mAxSlider').value;
+  const ay  = +document.getElementById('mAySlider').value;
+  const az  = +document.getElementById('mAzSlider').value;
+  document.getElementById('mAngVal').textContent = ang.toFixed(1)+'°';
+  document.getElementById('mAxVal').textContent = ax.toFixed(2);
+  document.getElementById('mAyVal').textContent = ay.toFixed(2);
+  document.getElementById('mAzVal').textContent = az.toFixed(2);
+  syncQuatToMap(ax,ay,az,ang);
+};
+['mAngSlider','mAxSlider','mAySlider','mAzSlider'].forEach(id =>
+  document.getElementById(id).addEventListener('input', syncMapQuat));
+
+document.getElementById('resetMap').addEventListener('click', () => {
+  ['mRollSlider','mPitchSlider','mYawSlider'].forEach(id => document.getElementById(id).value=0);
+  ['mAxSlider','mAySlider','mAzSlider'].forEach(id => document.getElementById(id).value=0);
+  document.getElementById('mAngSlider').value=0;
+  document.getElementById('mAxSlider').value=1;
+  mapAnim=false; syncMapEuler();
+});
+
+document.getElementById('animMap').addEventListener('click', () => {
+  mapAnim = !mapAnim;
+  document.getElementById('animMap').textContent = mapAnim ? '⏸ Pause' : '▶ Animate';
+});
+
+// ─────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeTab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+activeTab).classList.add('active');
+    // Reset animations
+    eulerAnim = quatAnim = mapAnim = false;
+    document.getElementById('animEuler').textContent = '▶ Animate';
+    document.getElementById('animQuat').textContent = '▶ Animate';
+    document.getElementById('animMap').textContent = '▶ Animate';
+    // Kill any running gimbal demo
+    if(gimbalDemoTimer){ clearInterval(gimbalDemoTimer); gimbalDemoTimer=null; }
+    document.getElementById('demoStatus').style.display = 'none';
+    // Reset rotation when switching tabs
+    airplaneGroup.rotation.set(0,0,0);
+    airplaneGroup.quaternion.set(0,0,0,1);
+    // Show gimbal rings only in Euler tab; reset their colours
+    setGimbalVisible(activeTab === 'euler');
+    yawGimbal.rotation.set(0,0,0);
+    pitchGimbal.rotation.set(0,0,0);
+    rollGimbal.rotation.set(0,0,0);
+    gimbalRingMats.yaw.color.set(0x44ff88);
+    gimbalRingMats.roll.color.set(0xff4444);
+    gimbalRingMats.yaw.emissive.set(0x44ff88);
+    gimbalRingMats.roll.emissive.set(0xff4444);
+    gimbalRingMats.yaw.emissiveIntensity = gimbalRingMats.roll.emissiveIntensity = 0.08;
+    gimbalRingMats.yaw.opacity = 0.50; gimbalRingMats.roll.opacity = 0.55;
+  });
+});
+
+// ─────────────────────────────────────────────
+// RESIZE
+// ─────────────────────────────────────────────
+const resize = () => {
+  const w = container.clientWidth, h = container.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+};
+window.addEventListener('resize', resize);
+resize();
+
+// ─────────────────────────────────────────────
+// SLERP helpers
+// ─────────────────────────────────────────────
+const qIdentity = new THREE.Quaternion(0,0,0,1);
+const qTarget   = new THREE.Quaternion();
+
+// ─────────────────────────────────────────────
+// ANIMATION LOOP
+// ─────────────────────────────────────────────
+const clock = new THREE.Clock();
+let animT = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  animT += dt;
+
+  if(activeTab === 'euler' && eulerAnim) {
+    eulerAnimT += dt * 0.4;
+    const roll  = Math.sin(eulerAnimT * 0.7) * 45;
+    const pitch = Math.sin(eulerAnimT * 0.5) * 30;
+    const yaw   = Math.sin(eulerAnimT * 0.3) * 60;
+    eulerSliders.roll.value  = roll;
+    eulerSliders.pitch.value = pitch;
+    eulerSliders.yaw.value   = yaw;
+    document.getElementById('rollVal').textContent  = roll.toFixed(1)+'°';
+    document.getElementById('pitchVal').textContent = pitch.toFixed(1)+'°';
+    document.getElementById('yawVal').textContent   = yaw.toFixed(1)+'°';
+    applyEuler(roll, pitch, yaw, state.eulerOrder);
+    checkGimbalLock(pitch);
+  }
+
+  if(activeTab === 'quat' && quatAnim) {
+    quatAnimT += dt * 0.5;
+    const ax = Math.cos(quatAnimT*0.3);
+    const ay = Math.sin(quatAnimT*0.5);
+    const az = Math.sin(quatAnimT*0.2)*Math.cos(quatAnimT*0.4);
+    const ang = Math.sin(quatAnimT*0.4)*120 + 60;
+    document.getElementById('qAngleSlider').value = ang;
+    document.getElementById('qAxSlider').value = ax;
+    document.getElementById('qAySlider').value = ay;
+    document.getElementById('qAzSlider').value = az;
+    document.getElementById('qAngleVal').textContent = ang.toFixed(1)+'°';
+    document.getElementById('qAxVal').textContent = ax.toFixed(2);
+    document.getElementById('qAyVal').textContent = ay.toFixed(2);
+    document.getElementById('qAzVal').textContent = az.toFixed(2);
+    applyAxisAngle(ax,ay,az,ang);
+  }
+
+  if(activeTab === 'map' && mapAnim) {
+    mapAnimT += dt * 0.4;
+    const r = Math.sin(mapAnimT*0.5)*50;
+    const p = Math.sin(mapAnimT*0.3)*40;
+    const y = Math.sin(mapAnimT*0.2)*70;
+    document.getElementById('mRollSlider').value  = r;
+    document.getElementById('mPitchSlider').value = p;
+    document.getElementById('mYawSlider').value   = y;
+    document.getElementById('mRollVal').textContent  = r.toFixed(1)+'°';
+    document.getElementById('mPitchVal').textContent = p.toFixed(1)+'°';
+    document.getElementById('mYawVal').textContent   = y.toFixed(1)+'°';
+    syncEulerToMap(r,p,y);
+  }
+
+  // Subtle ambient rotation when idle
+  if(!eulerAnim && !quatAnim && !mapAnim && !isDragging) {
+    // gently bob
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

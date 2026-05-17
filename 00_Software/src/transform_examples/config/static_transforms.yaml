@@ -1,0 +1,89 @@
+# Static Transform Configuration File (YAML)
+# 
+# This file demonstrates how to define static transforms in a YAML format.
+# This approach is useful for sensor calibration or when you want transforms
+# to be easily configurable without modifying launch files.
+#
+# Usage in a launch file:
+#   Node(
+#       package='tf2_ros',
+#       executable='static_transform_publisher',
+#       parameters=[
+#           {'transforms': yaml.safe_load(open('/path/to/transforms.yaml'))}
+#       ]
+#   )
+
+# Transform tree structure:
+#   map
+#   └── odom
+#       └── base_link
+#           ├── camera_link
+#           ├── lidar_link
+#           └── imu_link
+
+transforms:
+  # Global to odometry frame
+  - frame_id: "map"
+    child_frame_id: "odom"
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    description: "Global map to odometry frame"
+
+  # Odometry to robot base
+  - frame_id: "odom"
+    child_frame_id: "base_link"
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    description: "Odometry origin to robot base center"
+
+  # Robot base to camera (front mounted, elevated)
+  - frame_id: "base_link"
+    child_frame_id: "camera_link"
+    x: 0.1        # 10 cm forward
+    y: 0.0        # centered
+    z: 0.3        # 30 cm up
+    roll: 0.0
+    pitch: 0.0    # pointing straight ahead
+    yaw: 0.0
+    description: "Front camera mounted 10cm forward, 30cm up"
+
+  # Robot base to LiDAR (top mounted, centered)
+  - frame_id: "base_link"
+    child_frame_id: "lidar_link"
+    x: 0.0
+    y: 0.0
+    z: 0.25       # 25 cm up
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    description: "LiDAR on top of robot, 25cm up"
+
+  # Robot base to IMU (slightly offset)
+  - frame_id: "base_link"
+    child_frame_id: "imu_link"
+    x: -0.05      # 5 cm back
+    y: 0.0
+    z: 0.1        # 10 cm up
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    description: "IMU sensor location"
+
+  # Robot base to wheel odometry frame (for encoders)
+  - frame_id: "base_link"
+    child_frame_id: "wheel_odom_link"
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    description: "Wheel odometry reference frame"
