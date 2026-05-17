@@ -146,6 +146,113 @@ This system is intuitive for ground-based robots and drones as it aligns with ge
 - Every frame must have exactly **one parent** (except the root).
 -TF2 Official Tutorial:  https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Tf2/Tf2-Main.html
 
+---
+
+
+## tf2 Debugging Tools
+
+- `view_frames`: Generates a PDF diagram of the entire transform tree.
+  - `ros2 run tf2_tools view_frames`
+- `tf2_echo`: Prints the specific transform between two frames.
+  - `ros2 run tf2_ros tf2_echo [source_frame] [target_frame]`
+- `tf2_monitor`: Checks publication rates and health of the tree.
+  - `ros2 run tf2_ros tf2_monitor`
+
+---
+
+## Static Transform Publisher
+
+### Purpose
+
+A **static transform publisher** publishes fixed, non-changing transforms between coordinate frames. These are typically rigid relationships that don't change over time, such as:
+
+- The transform from a robot's base to its sensor (e.g., `base_link` -> `camera_link`).
+
+### When to Use
+
+- **Fixed geometric relationships**: Sensor mounting positions, fixed joint offsets.
+
+### Advantages
+
+- Lightweight and efficient (published once, cached by tf2).
+- No computational overhead during runtime.
+- Perfect for known, fixed relationships.
+
+### Two Methods to Publish Static Transforms
+
+#### Method 1: Using a Launch File (Recommended)
+
+The most common approach is using the `tf2_ros` static transform publisher node in a launch file:
+
+```python
+from launch import LaunchDescription
+from launch_ros.actions import Node
+
+def generate_launch_description():
+    return LaunchDescription([
+        # Static transform from base_link to camera_link
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            arguments=[
+                '--x', '0.1',
+                '--y', '0.0',
+                '--z', '0.3',
+                '--roll', '0.0',
+                '--pitch', '0.0',
+                '--yaw', '0.0',
+                '--frame-id', 'base_link',
+                '--child-frame-id', 'camera_link'
+            ]
+        ),
+    ])
+```
+
+#### Method 2: Programmatically in code
+
+```cpp
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+
+int main(int argc, char * argv[])
+{
+    rclcpp::init(argc, argv);
+    auto node = rclcpp::Node::make_shared("static_tf_publisher");
+    
+    auto tf_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(node);
+    
+    geometry_msgs::msg::TransformStamped t;
+    
+    // Set frame names
+    t.header.frame_id = "map";
+    t.child_frame_id = "base_link";
+    
+    // Set translation
+    t.transform.translation.x = 0.0;
+    t.transform.translation.y = 0.0;
+    t.transform.translation.z = 0.0;
+    
+    // Set rotation (quaternion): identity rotation
+    t.transform.rotation.x = 0.0;
+    t.transform.rotation.y = 0.0;
+    t.transform.rotation.z = 0.0;
+    t.transform.rotation.w = 1.0;
+    
+    tf_broadcaster->sendTransform(t);
+    
+    rclcpp::spin(node);
+    return 0;
+}
+```
+
+### Important Notes
+
+- **Arguments order**: `--x`, `--y`, `--z` are translation in meters. `--roll`, `--pitch`, `--yaw` are rotations in radians.
+- **Quaternion conversion**: RPY is converted internally to quaternions for tf2 storage.
+- **Frame hierarchy**: Ensure parent frame is published before the child, and avoid circular references.
+- **QoS**: Static transforms use a special QoS profile that ensures new subscribers get the data immediately.
+
+
 
 ---
 
@@ -260,111 +367,7 @@ buffer.lookup_transform(
    - Dynamic transforms (odom → base_link) change continuously, published at high frequency
 4. **Consistency**: Always query transforms with the correct parent-child relationship
 
----
 
-
-## tf2 Debugging Tools
-
-- `view_frames`: Generates a PDF diagram of the entire transform tree.
-  - `ros2 run tf2_tools view_frames`
-- `tf2_echo`: Prints the specific transform between two frames.
-  - `ros2 run tf2_ros tf2_echo [source_frame] [target_frame]`
-- `tf2_monitor`: Checks publication rates and health of the tree.
-  - `ros2 run tf2_ros tf2_monitor`
-
----
-
-## Static Transform Publisher
-
-### Purpose
-
-A **static transform publisher** publishes fixed, non-changing transforms between coordinate frames. These are typically rigid relationships that don't change over time, such as:
-
-- The transform from a robot's base to its sensor (e.g., `base_link` -> `camera_link`).
-
-### When to Use
-
-- **Fixed geometric relationships**: Sensor mounting positions, fixed joint offsets.
-
-### Advantages
-
-- Lightweight and efficient (published once, cached by tf2).
-- No computational overhead during runtime.
-- Perfect for known, fixed relationships.
-
-### Two Methods to Publish Static Transforms
-
-#### Method 1: Using a Launch File (Recommended)
-
-The most common approach is using the `tf2_ros` static transform publisher node in a launch file:
-
-```python
-from launch import LaunchDescription
-from launch_ros.actions import Node
-
-def generate_launch_description():
-    return LaunchDescription([
-        # Static transform from base_link to camera_link
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            arguments=[
-                '--x', '0.1',
-                '--y', '0.0',
-                '--z', '0.3',
-                '--roll', '0.0',
-                '--pitch', '0.0',
-                '--yaw', '0.0',
-                '--frame-id', 'base_link',
-                '--child-frame-id', 'camera_link'
-            ]
-        ),
-    ])
-```
-
-#### Method 2: Programmatically in code
-
-```cpp
-#include <tf2_ros/static_transform_broadcaster.h>
-#include <geometry_msgs/msg/transform_stamped.hpp>
-
-int main(int argc, char * argv[])
-{
-    rclcpp::init(argc, argv);
-    auto node = rclcpp::Node::make_shared("static_tf_publisher");
-    
-    auto tf_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(node);
-    
-    geometry_msgs::msg::TransformStamped t;
-    
-    // Set frame names
-    t.header.frame_id = "map";
-    t.child_frame_id = "base_link";
-    
-    // Set translation
-    t.transform.translation.x = 0.0;
-    t.transform.translation.y = 0.0;
-    t.transform.translation.z = 0.0;
-    
-    // Set rotation (quaternion): identity rotation
-    t.transform.rotation.x = 0.0;
-    t.transform.rotation.y = 0.0;
-    t.transform.rotation.z = 0.0;
-    t.transform.rotation.w = 1.0;
-    
-    tf_broadcaster->sendTransform(t);
-    
-    rclcpp::spin(node);
-    return 0;
-}
-```
-
-### Important Notes
-
-- **Arguments order**: `--x`, `--y`, `--z` are translation in meters. `--roll`, `--pitch`, `--yaw` are rotations in radians.
-- **Quaternion conversion**: RPY is converted internally to quaternions for tf2 storage.
-- **Frame hierarchy**: Ensure parent frame is published before the child, and avoid circular references.
-- **QoS**: Static transforms use a special QoS profile that ensures new subscribers get the data immediately.
 
 ---
 
