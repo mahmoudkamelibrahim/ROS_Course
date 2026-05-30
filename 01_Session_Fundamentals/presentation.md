@@ -1,11 +1,3 @@
----
-marp: true
-theme: default
-class: lead
-paginate: true
-backgroundColor: #fff
----
-
 # Session 1: ROS 2 Fundamentals
 ROS 2 Jazzy C++ Course
 
