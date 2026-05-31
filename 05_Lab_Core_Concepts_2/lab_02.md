@@ -7,6 +7,19 @@
 >     *   For **Custom Interfaces**, use `rosidl_generate_interfaces` in your `CMakeLists.txt`.
 > *   **Tutorial:** For help with custom messages, refer to the [Official ROS 2 Jazzy Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html).
 
+```
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/RobotStatus.msg"
+  DEPENDENCIES geometry_msgs std_msgs
+)
+------
+rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} rosidl_typesupport_cpp)
+
+target_link_libraries(status_publisher "${cpp_typesupport_target}")
+
+```
+
 ---
 
 ## Task: Circular Moving Turtle with Stop & Continue Services
