@@ -13,7 +13,6 @@ IMUs are small electronic sensors that help devices (drones, phones, robots, VR 
 - **Gyroscope**: Measures *angular velocity* (how fast the device is rotating) in 3 axes. It’s great for tracking quick rotations but drifts over time.
 - **Magnetometer** (often included): Acts like a digital compass, measures the Earth’s magnetic field to help with yaw (heading) direction.
 
-![width:500px](images/imu_sensor.jpg)
 
 By combining these sensors (usually with a software filter like Kalman or Madgwick), the IMU can estimate the device’s **orientation** (how it’s tilted/rotated) and sometimes its position.
 
@@ -364,45 +363,86 @@ buffer.lookup_transform(
 2. **Transforms are broadcast over time** — you can look up where a frame was at any point in history
 3. **Static vs Dynamic**:
    - Static transforms (base_link → camera_link) change rarely, published once
-   - Dynamic transforms (odom → base_link) change continuously, published at high frequency
-4. **Consistency**: Always query transforms with the correct parent-child relationship
-
-
+   - Dynamic transforms (odom → base_link) change continuously, published at high frequency.
 
 ---
 
 ## Sensor Fusion: Kalman Filter (KF)
 
-The Kalman Filter is an algorithm that provides an estimate of the state of a system (like a robot's position) by combining noisy sensor measurements.
+The Kalman Filter (KF) is an algorithm that estimates the true state of a system (such as a robot's position or velocity) by combining a sequence of noisy, imperfect measurements over time. It operates recursively in a **Predict-Update** loop.
 
-- **Predict Step**: Uses a mathematical model to guess where the robot is based on previous state and control input (e.g., wheel encoders).
-- **Update Step**: Corrects the prediction using actual sensor data (e.g., GPS, IMU, LiDAR).
+### The Predict-Update Cycle
+
+```mermaid
+graph TD
+    A[Initial State Estimate & Uncertainty] --> B(Predict Step<br>Use Physics Motion Model<br>)
+    B --> C[Predicted State + Higher Uncertainty]
+    C --> D(Update Step<br>Correct with Sensor Measurements<br>e.g., GPS / IMU)
+    D --> E[Estimated State + Lower Uncertainty]
+    E --> B
+```
+
+### Visualizing Sensor Fusion: Encoders vs. GPS
+
+Consider tracking a 1D position $x$:
+* **Wheel Encoders (Predict)**: High frequency ($50\text{ Hz}$), very smooth, but drifts over time (cumulative error).
+* **GPS (Update)**: Low frequency ($1\text{ Hz}$), very noisy (jumps around), but has *zero* long-term drift.
+* **Kalman Filter (Fused)**: High frequency, smooth, and zero drift.
+
+![width:600px](images/sensor_fusion_encoders_gps.png)
+
+### 1D Tracking Example
+
+Imagine a robot moving along a straight line:
+1. **Predict (Motion Model)**:
+   * Based on wheel speeds, the robot predicts it moved $1.0\text{ m}$.
+   * Previous position was $10.0\text{ m} \pm 0.2\text{ m}$ uncertainty.
+   * New predicted position: $11.0\text{ m} \pm 0.5\text{ m}$ (uncertainty increased because we integrated noisy velocity).
+2. **Update (Measurement)**:
+   * A GPS receiver measures the position as $11.8\text{ m} \pm 0.3\text{ m}$.
+3. **Fusion (The Kalman Gain)**:
+   * The filter computes a weighted average based on uncertainties. Since the GPS measurement has lower uncertainty ($0.3$) than the prediction ($0.5$), the filter trusts the GPS more.
+   * **Final Estimate**: $11.52\text{ m} \pm 0.25\text{ m}$. Note that the fused uncertainty ($0.25$) is *lower* than both the prediction and the measurement alone!
 
 ---
 
-## Extended Kalman Filter (EKF)
-
-Real-world robots often have non-linear motion or sensor models (e.g., a robot turning).
-
-- **EKF** linearizes the system around the current estimate.
-- It is the most widely used version of the Kalman Filter in robotics for state estimation.
-
----
 
 ## robot_localization Package
 
 The industry standard in ROS 2 for fusing sensor data (Odometry, IMU, GPS).
 
 - **`ekf_node`**: Implements an Extended Kalman Filter.
-- **`ukf_node`**: Implements an Unscented Kalman Filter (more accurate for highly non-linear systems).
+- **`ukf_node`**: Implements an Unscented Kalman Filter (which samples points around the mean, called Sigma Points, to handle severe non-linearities without analytical Jacobians).
 - **Features**:
-  - Handles different sensor rates.
-  - Can fuse multiple sensors of the same type.
-  - Generates the `odom` -> `base_link` transform.
+  - Handles different sensor rates asynchronously.
+  - Can fuse multiple sensors of the same type (e.g., dual IMUs).
+  - Generates the continuous `odom` -> `base_link` transform.
+
+### State Vector Definition
+
+The EKF tracks a 15-state vector:
+$$\mathbf{x} = [X, Y, Z, \phi, \theta, \psi, \dot{X}, \dot{Y}, \dot{Z}, \dot{\phi}, \dot{\theta}, \dot{\psi}, \ddot{X}, \ddot{Y}, \ddot{Z}]^T$$
+
+| Variable | Description | Variable | Description |
+| :--- | :--- | :--- | :--- |
+| $X, Y, Z$ | 3D Position | $\dot{X}, \dot{Y}, \dot{Z}$ | 3D Linear Velocity |
+| $\phi, \theta, \psi$ | Roll, Pitch, Yaw | $\dot{\phi}, \dot{\theta}, \dot{\psi}$ | 3D Angular Velocity |
+| $\ddot{X}, \ddot{Y}, \ddot{Z}$ | 3D Linear Acceleration | | |
+
+In the configuration file, we specify which of these variables to fuse from each sensor using a $3 \times 5$ boolean array:
+
+```yaml
+# configuration mapping:
+# [ X,      Y,      Z,
+#   roll,   pitch,  yaw,
+#   X_dot,  Y_dot,  Z_dot,
+#   r_dot,  p_dot,  y_dot,
+#   X_ddot, Y_ddot, Z_ddot ]
+```
 
 ### robot_localization Configuration Demo
 
-A typical ROS 2 `robot_localization` setup uses a YAML parameter file and a launch file that loads it. The YAML should define the node name under `ros__parameters`, and the launch file can preserve `use_sim_time` and topic remappings.
+A typical ROS 2 `robot_localization` setup uses a YAML parameter file and a launch file that loads it. The YAML defines the node name under `ros__parameters`, and the launch file preserves `use_sim_time` and topic remappings.
 
 A corrected `ekf.yaml` example:
 
@@ -422,8 +462,10 @@ ekf_filter_node_odom:
     base_link_frame: base_footprint
     world_frame: odom
     publish_tf: true
-    # (X,Y,Z,roll,pitch,yaw,X˙,Y˙,Z˙,roll˙,pitch˙,yaw˙,X¨,Y¨,Z¨)
-    odom0: odometry/wheel
+
+    # Fuse wheel encoders (odom0)
+    # Fusing linear velocity X (X_dot) and angular velocity Yaw (y_dot)
+    odom0: encoder_sensor
     odom0_config: [false, false, false,
                   false, false, false,
                   true,  true, false,
@@ -434,7 +476,9 @@ ekf_filter_node_odom:
     odom0_differential: false
     odom0_relative: false
 
-    imu0: /imu/data
+    # Fuse IMU (imu0)
+    # Fusing orientation Roll & Pitch, and angular velocity Yaw (y_dot)
+    imu0: imu_sensor
     imu0_config: [false, false, false,
                   true,  true,  false,
                   false, false, false,
@@ -455,7 +499,6 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
-
 
 def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
@@ -491,77 +534,207 @@ def generate_launch_description():
 ```
 
 **How it works**:
-
-- `odom0` reads wheel odometry from `odometry/wheel`.
-- `imu0` reads IMU data from `/imu/data`.
-- `publish_tf: true` allows `ekf_node` to publish `map -> odom`.
+- `odom0` reads wheel odometry from `encoder_sensor`.
+- `imu0` reads IMU data from `/imu_sensor`.
+- `publish_tf: true` allows `ekf_node` to publish `odom -> base_footprint`.
 - The launch file passes `use_sim_time` and remaps `odometry/filtered` and `set_pose` for RViz interactions.
 
 ---
 
 ## Quality of Service (QoS)
 
-QoS allows tuning communication based on network and application needs.
+ROS 2 allows fine-grained control over communication QoS policies to tune reliability, latency, and resource usage. This is critical for systems with lossy networks (e.g., WiFi links to a mobile robot) or high-frequency data streams (e.g., camera feeds, IMU, LiDAR).
 
-**Key Policies**:
-- **Reliability**: `Reliable` (guaranteed delivery) vs `Best Effort` (lower overhead, no retries).
-- **Durability**: `Volatile` (future messages only) vs `Transient Local` (new subs get last cached messages).
-- **History**: `Keep Last` (depth-limited) vs `Keep All`.
-- **Liveliness**: `Automatic` vs `Manual by Topic`.
+### Key QoS Policies Illustrated
 
----
+#### 1. History Policy (Queue Management)
+```text
+Keep Last (Depth = 3):
+[ Msg 1 ] -> [ Msg 2 ] -> [ Msg 3 ]  ==> [ Msg 4 arrives ] ==>  [ Msg 2 ] -> [ Msg 3 ] -> [ Msg 4 ] (Msg 1 discarded)
 
-## Common QoS Profiles
+Keep All:
+[ Msg 1 ] -> [ Msg 2 ] -> [ Msg 3 ] -> [ Msg 4 ] -> ... (Never discards until memory limits reached)
+```
 
-- **Default**: Reliable, Volatile, History Keep Last (Depth 10).
-- **Sensor Data**: Best Effort, Volatile, History Keep Last (Depth 5).
-  - *Best for high-frequency data where old data is obsolete.*
-- **Services**: Reliable, Volatile Durability.
+#### 2. Durability Policy (Late-Joiner Behavior)
+* **Volatile**: Late subscribers only receive messages sent *after* they connect.
+* **Transient Local**: The publisher caches previous messages and "latches" them for late subscribers.
 
----
-
-## QoS in C++
-
-Setting QoS for Publishers and Subscribers:
-
-```cpp
-// Using a predefined profile (Sensor Data)
-auto qos = rclcpp::SensorDataQoS();
-
-// Custom QoS Profile
-auto custom_qos = rclcpp::QoS(rclcpp::KeepLast(10))
-    .reliability(rclcpp::ReliabilityPolicy::BestEffort)
-    .durability(rclcpp::DurabilityPolicy::TransientLocal);
-
-// Apply to Publisher/Subscriber
-pub = this->create_publisher<msg_t>("topic", custom_qos);
-sub = this->create_subscription<msg_t>("topic", qos, callback);
+```text
+Publisher               Subscriber (Late-joiner)
+   |-- Msg 1 (12:00)         |
+   |-- Msg 2 (12:05)         |
+   |                         |-- Connects (12:10)
+   |                         |
+   |==== [ VOLATILE ] =======| ==> Receives nothing from the past.
+   |                         |
+   |==== [ TRANSIENT ] ======| ==> Instantly receives Msg 2!
 ```
 
 ---
 
-## QoS in Python
+## QoS Compatibility (Rx / Tx Matching)
 
-Setting QoS for Publishers and Subscribers:
+In ROS 2, a connection between a Publisher (TX) and a Subscriber (RX) is established **only if their requested and offered QoS profiles are compatible**. This is the **"Request vs. Offer"** contract.
 
+### The QoS Handshake
+
+```mermaid
+sequenceDiagram
+    participant Pub as Publisher (TX)
+    participant DDS as DDS Middleware
+    participant Sub as Subscriber (RX)
+
+    Note over Pub, Sub: Scenario 1: Compatible QoS
+    Pub->>DDS: Offers: Best Effort
+    Sub->>DDS: Requests: Best Effort
+    DDS->>Sub: Connection Established! ✅ (Best Effort delivery)
+
+    Note over Pub, Sub: Scenario 2: Incompatible QoS
+    Pub->>DDS: Offers: Best Effort (I might lose messages)
+    Sub->>DDS: Requests: Reliable (I MUST receive every message!)
+    DDS--xSub: Connection Blocked! ❌ (Subscriber gets NO data)
+```
+
+### Compatibility Matrix
+
+| Policy | Publisher (TX) Offers | Subscriber (RX) Requests | Status | Connection? |
+| :--- | :--- | :--- | :--- | :--- |
+| **Reliability** | Reliable | Reliable | Compatible | **Yes** (Reliable) |
+| | Reliable | Best Effort | Compatible | **Yes** (Best Effort) |
+| | Best Effort | Reliable | **Incompatible** | **No** (No data flow) |
+| | Best Effort | Best Effort | Compatible | **Yes** (Best Effort) |
+| **Durability** | Transient Local | Transient Local | Compatible | **Yes** |
+| | Transient Local | Volatile | Compatible | **Yes** |
+| | Volatile | Transient Local | **Incompatible** | **No** (No data flow) |
+| | Volatile | Volatile | Compatible | **Yes** |
+
+> [!WARNING]
+> If a subscriber requests **Reliable** but the publisher only offers **Best Effort**, they will **not connect**, and no data will flow. This is one of the most common reasons for "missing messages" in ROS 2.
+
+---
+
+## Setting QoS Profiles in ROS 2
+
+Here is how you can define and apply custom or pre-defined QoS profiles in C++ and Python nodes.
+
+### 1. Custom QoS Profile
+
+You can construct a custom profile and tune reliability, durability, and queue depth manually.
+
+#### C++ Custom Example
+```cpp
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
+
+// Define custom QoS profile (History Depth = 10)
+rclcpp::QoS custom_qos(10); 
+custom_qos.reliability(rclcpp::ReliabilityPolicy::BestEffort);
+custom_qos.durability(rclcpp::DurabilityPolicy::Volatile);
+
+auto pub = node->create_publisher<std_msgs::msg::String>("topic", custom_qos);
+```
+
+#### Python Custom Example
 ```python
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+from std_msgs.msg import String
 
-# Custom QoS Profile
+# Define custom QoS profile
 custom_qos = QoSProfile(
     history=HistoryPolicy.KEEP_LAST,
     depth=10,
-    reliability=ReliabilityPolicy.BEST_EFFORT
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE
 )
 
-# Using predefined profile
-from rclpy.qos import qos_profile_sensor_data
-
-# Apply to Publisher/Subscriber
-self.create_publisher(String, 'topic', custom_qos)
-self.create_subscription(String, 'topic', callback, qos_profile_sensor_data)
+pub = node.create_publisher(String, 'topic', custom_qos)
 ```
 
+### 2. Pre-defined QoS Profiles (e.g., Sensor Data / System Default)
+
+ROS 2 provides built-in profiles for common use cases. For example, high-frequency sensor data (like LiDAR, IMU, or camera feeds) typically uses the **Sensor Data** profile (`Best Effort` reliability, `Volatile` durability, and a small queue size).
+
+#### C++ Built-in Example
+```cpp
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/laser_scan.hpp"
+
+// Use rclcpp::SensorDataQoS() directly
+auto sub = node->create_subscription<sensor_msgs::msg::LaserScan>(
+  "scan",
+  rclcpp::SensorDataQoS(),
+  [](const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+    // Callback logic
+  }
+);
+```
+
+#### Python Built-in Example
+```python
+from rclpy.qos import qos_profile_sensor_data
+from sensor_msgs.msg import LaserScan
+
+# Use qos_profile_sensor_data directly
+sub = node.create_subscription(
+    LaserScan,
+    'scan',
+    callback,
+    qos_profile=qos_profile_sensor_data
+)
+```
+
+---
+
+## QoS Troubleshooting Tools
+
+### Verbose Topic Info
+Use the `--verbose` flag with `ros2 topic info` to see the exact QoS profiles offered and requested by all nodes currently on a topic:
+
+```bash
+ros2 topic info /qos_topic --verbose
+```
+
+*Note: If a publisher is `BEST_EFFORT` and the subscriber is `RELIABLE`, they will fail to connect. The console will print incompatible QoS warnings!*
+
+---
+
+## Practical QoS Lab: `qos_examples`
+
+The `qos_examples` package in `00_Software` contains a C++ publisher and a Python subscriber. You can test compatibility policies using launch parameters.
+
+### Build the Package
+```bash
+cd ~/Documents/ROS2_Material/00_Software
+colcon build --packages-select qos_examples
+source install/setup.bash
+```
+
+### Test Case 1: Compatible Configuration (Reliable / Volatile)
+By default, both nodes are set to `reliable` and `volatile`.
+```bash
+ros2 launch qos_examples qos_demo.launch.py
+```
+*Observe: Messages are published by C++ and received by Python successfully.*
+
+### Test Case 2: Incompatible Reliability
+Force the C++ publisher to offer `best_effort` while the Python subscriber requests `reliable`.
+```bash
+ros2 launch qos_examples qos_demo.launch.py pub_reliability:=best_effort sub_reliability:=reliable
+```
+*Observe:*
+1. No messages are received by the subscriber.
+2. The publisher outputs: `[qos_publisher] INCOMPATIBLE QOS OFFERED EVENT DETECTED!`
+3. The subscriber outputs: `[qos_subscriber] INCOMPATIBLE QOS REQUESTED EVENT DETECTED!`
+
+### Test Case 3: Incompatible Durability
+Force the C++ publisher to offer `volatile` while the Python subscriber requests `transient_local`.
+```bash
+ros2 launch qos_examples qos_demo.launch.py pub_durability:=volatile sub_durability:=transient_local
+```
+*Observe:*
+1. Connection fails, no messages received.
+2. Both nodes trigger the incompatible QoS callbacks, warning that the mismatch is due to `DURABILITY`.*
 
 ---
 

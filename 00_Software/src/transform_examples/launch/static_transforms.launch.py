@@ -67,8 +67,8 @@ def generate_launch_description():
             package='tf2_ros',
             executable='static_transform_publisher',
             arguments=[
-                '--x', '0.1',      # 10 cm forward (X)
-                '--y', '0.0',      # Center (Y)
+                '--x', '0.9',      # 10 cm forward (X)
+                '--y', '0.3',      # Center (Y)
                 '--z', '0.3',      # 30 cm up (Z)
                 '--roll', '0.0',
                 '--pitch', '0.0',  # Pointing straight ahead
@@ -86,7 +86,7 @@ def generate_launch_description():
             package='tf2_ros',
             executable='static_transform_publisher',
             arguments=[
-                '--x', '0.0',      # Center (X)
+                '--x', '2.0',      # Center (X)
                 '--y', '0.0',      # Center (Y)
                 '--z', '0.25',     # 25 cm up (Z)
                 '--roll', '0.0',
@@ -105,7 +105,7 @@ def generate_launch_description():
             package='tf2_ros',
             executable='static_transform_publisher',
             arguments=[
-                '--x', '-0.05',    # 5 cm back (X)
+                '--x', '-0.5',    # 5 cm back (X)
                 '--y', '0.0',      # Center (Y)
                 '--z', '0.1',      # 10 cm up (Z)
                 '--roll', '0.0',
