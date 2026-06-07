@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclpy REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -28,8 +29,8 @@ if(BUILD_TESTING)
 endif()
 
 
-add_executable(conversions src/conversions.cpp)
-ament_target_dependencies(conversions 
+add_executable(conversions_node src/conversions.cpp)
+ament_target_dependencies(conversions_node 
   rclcpp 
   sensor_msgs 
   tf2 
@@ -37,12 +38,25 @@ ament_target_dependencies(conversions
   tf2_eigen
 )
 
-install(TARGETS conversions
+install(TARGETS conversions_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY config
+install(DIRECTORY 
+  config
+  launch
   DESTINATION share/${PROJECT_NAME}
+)
+
+# Make the python script executable during build/configuration
+execute_process(
+  COMMAND chmod +x ${CMAKE_CURRENT_SOURCE_DIR}/scripts/conversions_node.py
+)
+
+# Install Python scripts as programs so they are marked as executable and put in the target's bin path
+install(PROGRAMS
+  scripts/conversions_node.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 
